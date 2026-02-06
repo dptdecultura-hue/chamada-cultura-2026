@@ -37,7 +37,7 @@ export default function CasaDaCulturaPage() {
     const contagem: any = {}
     aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1 })
     setContagemAlunos(contagem)
-    if (tData) setTurmas(tData.sort((a, b) => a.horario.localeCompare(b.horario)))
+    if (tData) setTurmas(tData.sort((a: any, b: any) => a.horario.localeCompare(b.horario)))
     setLoading(false)
   }
 
@@ -104,7 +104,6 @@ export default function CasaDaCulturaPage() {
 
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic uppercase">Carregando...</div>
 
-  // --- TELA 1: MENU ---
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-slate-50">
       <div className="max-w-6xl mx-auto">
@@ -112,14 +111,14 @@ export default function CasaDaCulturaPage() {
           <h1 className="text-4xl font-black border-l-8 border-black pl-6 uppercase italic tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
           <input 
             type="text" 
-            placeholder="BUSCAR ALUNO..." 
+            placeholder="BUSCAR PROFESSOR..." 
             className="border-4 border-black p-3 font-black italic uppercase outline-none shadow-[4px_4px_0px_#000] w-full md:w-80"
             onChange={(e) => setBusca(e.target.value.toUpperCase())}
           />
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...new Set(turmas.map(t => t.professor))].sort().map(p => {
+          {[...new Set(turmas.map(t => t.professor))].filter(p => p.toUpperCase().includes(busca)).sort().map(p => {
             const totalProf = turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0)
             return (
               <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} 
@@ -133,7 +132,6 @@ export default function CasaDaCulturaPage() {
     </div>
   )
 
-  // --- TELA 2: LISTA ---
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel)
     return (
@@ -162,7 +160,6 @@ export default function CasaDaCulturaPage() {
     )
   }
 
-  // --- TELA 3: CHAMADA ---
   const cursoAtivo = turmas.find(c => c.id === idAtivo)
   if (!cursoAtivo) return null
   const datasAulas = getDatasDoMes(cursoAtivo.dias)
