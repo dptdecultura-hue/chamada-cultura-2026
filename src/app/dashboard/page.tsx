@@ -1,111 +1,181 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 
-export default function DashboardADM() {
-  const [turmas, setTurmas] = useState<any[]>([])
-  const [stats, setStats] = useState<any>({})
+export default function CasaDaCulturaPage() {
+  const [turma, setTurma] = useState<any>(null)
+  const [alunos, setAlunos] = useState<any[]>([])
+  const [frequencia, setFrequencia] = useState<any>({})
   const [loading, setLoading] = useState(true)
-  const mesAtual = new Date().getMonth()
+  const [mesSel, setMesSel] = useState(new Date().getMonth())
+
+  const meses = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ]
+
+  // Configuração Fixa: Apenas 18 linhas por folha
+  const totalLinhas = 18
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    fetchDados()
+  }, [mesSel])
 
-  async function fetchDashboardData() {
+  async function fetchDados() {
     setLoading(true)
-    try {
-      const { data: turmasData } = await supabase.from('turmas').select('*').order('oficina', { ascending: true })
-      if (turmasData) {
-        setTurmas(turmasData)
-        const estatisticas: any = {}
-        for (const turma of turmasData) {
-          const { count: totalAlunos } = await supabase.from('alunos').select('*', { count: 'exact', head: true }).eq('turma_id', turma.id)
-          const { data: freqData } = await supabase.from('frequencia').select('aluno_posicao, status').eq('turma_id', turma.id).eq('mes', mesAtual).eq('status', 'F')
-          
-          const faltasPorAluno: any = {}
-          freqData?.forEach(f => {
-            faltasPorAluno[f.aluno_posicao] = (faltasPorAluno[f.aluno_posicao] || 0) + 1
-          })
-          const alertas = Object.values(faltasPorAluno).filter((f: any) => f >= 3).length
-          estatisticas[turma.id] = { total: totalAlunos || 0, alertas: alertas }
-        }
-        setStats(estatisticas)
-      }
-    } catch (e) { console.error(e) }
+    // Busca a primeira turma encontrada (ajuste o filtro se necessário)
+    const { data: turmas } = await supabase.from('turmas').select('*').limit(1)
+    if (turmas && turmas[0]) {
+      setTurma(turmas[0])
+      
+      const { data: alunosData } = await supabase
+        .from('alunos')
+        .select('*')
+        .eq('turma_id', turmas[0].id)
+        .order('posicao', { ascending: true })
+      
+      setAlunos(alunosData || [])
+
+      const { data: freqData } = await supabase
+        .from('frequencia')
+        .select('*')
+        .eq('turma_id', turmas[0].id)
+        .eq('mes', mesSel)
+
+      const freqMap: any = {}
+      freqData?.forEach(f => {
+        freqMap[`${f.aluno_posicao}-${f.dia}`] = f.status
+      })
+      setFrequencia(freqMap)
+    }
     setLoading(false)
   }
 
-  if (loading) return <div className="p-20 font-black text-center text-xl uppercase animate-pulse">Carregando painel...</div>
+  const salvarNome = async (posicao: number, nome: string) => {
+    if (!turma) return
+    const { error } = await supabase
+      .from('alunos')
+      .upsert({ turma_id: turma.id, posicao, nome }, { onConflict: 'turma_id,posicao' })
+    if (error) console.error("Erro ao salvar:", error)
+  }
+
+  if (loading) return <div className="p-20 font-black text-center animate-pulse">CARREGANDO...</div>
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6">
-      {/* HEADER LIMPO */}
-      <header className="max-w-6xl mx-auto mb-10 flex justify-between items-center border-b-2 border-black pb-6">
-        <div>
-          <h1 className="text-3xl font-black uppercase tracking-tight">Gestão de Turmas</h1>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Casa da Cultura 2026</p>
-        </div>
-        <Link href="/" className="border-2 border-black px-4 py-2 font-black uppercase text-[10px] hover:bg-black hover:text-white transition-all">
-          ← Sair do Painel
-        </Link>
-      </header>
+    <div className="min-h-screen bg-white p-4 sm:p-8 italic font-black uppercase">
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { padding: 0 !important; }
+          .sheet { border: none !important; box-shadow: none !important; }
+        }
+      `}</style>
 
-      {/* GRID ORGANIZADA */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {turmas.map((turma) => {
-          const info = stats[turma.id] || { total: 0, alertas: 0 }
-          const temAlerta = info.alertas > 0
+      {/* CONTROLES ADM - NÃO SAEM NA IMPRESSÃO */}
+      <div className="no-print mb-8 flex flex-wrap gap-4 bg-slate-100 p-4 border-2 border-black">
+        <select 
+          value={mesSel} 
+          onChange={(e) => setMesSel(Number(e.target.value))}
+          className="border-2 border-black p-2 bg-white"
+        >
+          {meses.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        
+        <button 
+          onClick={() => window.print()}
+          className="bg-black text-white px-6 py-2 hover:bg-blue-600 transition-colors"
+        >
+          IMPRIMIR CHAMADA
+        </button>
+      </div>
 
-          return (
-            <div key={turma.id} className="bg-white border-2 border-black shadow-[4px_4px_0px_#000] flex flex-col">
-              {/* TOPO DO CARD: Cor só se tiver alerta */}
-              <div className={`p-4 border-b-2 border-black ${temAlerta ? 'bg-red-500 text-white' : 'bg-slate-100 text-black'}`}>
-                <h2 className="text-lg font-black uppercase truncate">{turma.oficina}</h2>
-                <p className={`text-[10px] font-bold uppercase ${temAlerta ? 'text-white/80' : 'text-slate-500'}`}>
-                  Prof. {turma.professor}
-                </p>
+      {/* FOLHA DE CHAMADA */}
+      <div className="sheet max-w-5xl mx-auto border-2 border-gray-200 p-6 shadow-xl bg-white">
+        
+        {/* CABEÇALHO EM DESTAQUE */}
+        <div className="flex justify-between items-start border-b-8 border-black pb-4 mb-6">
+          <div className="space-y-3">
+            <h2 className="text-4xl tracking-tighter italic">{turma?.oficina}</h2>
+            
+            <div className="flex gap-2">
+              <div className="border-2 border-black px-3 py-1 bg-white">
+                <span className="text-[9px] block text-gray-500 font-bold">PROFESSOR(A)</span>
+                <span className="text-sm">{turma?.professor}</span>
               </div>
 
-              {/* CORPO DO CARD */}
-              <div className="p-4 flex-grow space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Matrículas Ativas</span>
-                  <span className="font-bold text-sm">{info.total} / 18</span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Situação</span>
-                  {temAlerta ? (
-                    <span className="bg-red-100 text-red-600 px-2 py-0.5 text-[10px] font-black border border-red-600 uppercase animate-pulse">
-                      {info.alertas} Alunos com Falta
-                    </span>
-                  ) : (
-                    <span className="text-green-600 text-[10px] font-black uppercase italic">Regular</span>
-                  )}
-                </div>
-
-                <div className="pt-2">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase italic">Horário: {turma.horario}</p>
-                </div>
+              <div className="border-2 border-black px-3 py-1 bg-white">
+                <span className="text-[9px] block text-gray-500 font-bold">HORÁRIO</span>
+                <span className="text-sm">{turma?.horario}</span>
               </div>
 
-              {/* BOTÕES DE AÇÃO */}
-              <div className="p-4 bg-slate-50 border-t-2 border-black grid grid-cols-2 gap-2">
-                <Link 
-                  href={`/chamada/${turma.id}`} 
-                  className="bg-blue-600 text-white text-center py-2 font-black uppercase text-[10px] border-2 border-black shadow-[2px_2px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
-                >
-                  Abrir Chamada
-                </Link>
-                <button className="bg-white text-black text-center py-2 font-black uppercase text-[10px] border-2 border-black shadow-[2px_2px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
-                  Relatório
-                </button>
+              {/* DIAS DA SEMANA - DESTAQUE PRETO */}
+              <div className="border-4 border-black px-4 py-1 bg-black text-white shadow-[4px_4px_0px_#ccc]">
+                <span className="text-[9px] block text-gray-400 font-bold">DIAS DA SEMANA</span>
+                <span className="text-lg tracking-widest">
+                  {turma?.dias?.includes('TER') ? 'TERÇA E QUINTA' : 'SEGUNDA E QUARTA'}
+                </span>
               </div>
             </div>
-          )
-        })}
+          </div>
+
+          <div className="text-right flex flex-col items-end">
+            <div className="bg-black text-white px-6 py-2 mb-2">
+                <span className="text-2xl">{meses[mesSel]}</span>
+            </div>
+            <span className="text-[10px] italic">CASA DA CULTURA 2026</span>
+          </div>
+        </div>
+
+        {/* TABELA DE CHAMADA - SEM COLUNA NAIPE */}
+        <table className="w-full border-collapse border-4 border-black">
+          <thead>
+            <tr className="bg-slate-50">
+              <th className="border-2 border-black w-10 p-1 text-[10px]">Nº</th>
+              <th className="border-2 border-black p-2 text-left text-xs">NOME DO ALUNO</th>
+              {Array.from({ length: 31 }).map((_, i) => (
+                <th key={i} className="border-2 border-black w-6 p-0 text-[8px] leading-none">
+                  {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: totalLinhas }).map((_, i) => {
+              const posicao = i + 1
+              const aluno = alunos.find(a => a.posicao === posicao)
+              
+              return (
+                <tr key={posicao} className="h-8">
+                  <td className="border-2 border-black text-center text-[10px] font-bold bg-slate-50">
+                    {posicao}
+                  </td>
+                  <td className="border-2 border-black px-2">
+                    <input 
+                      type="text"
+                      defaultValue={aluno?.nome || ''}
+                      onBlur={(e) => salvarNome(posicao, e.target.value)}
+                      className="w-full outline-none bg-transparent text-sm focus:bg-yellow-50"
+                      placeholder="..."
+                    />
+                  </td>
+                  {Array.from({ length: 31 }).map((_, diaIdx) => (
+                    <td key={diaIdx} className="border-2 border-black p-0"></td>
+                  ))}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        {/* RODAPÉ PARA ASSINATURA */}
+        <div className="mt-10 flex justify-between items-end">
+          <div className="text-[9px] text-gray-400">
+            LEGENDA: ( . ) PRESENÇA  |  ( F ) FALTA  |  ( J ) JUSTIFICADO
+          </div>
+          <div className="w-64 border-t-2 border-black text-center pt-1">
+            <p className="text-[10px] font-bold uppercase">Assinatura do Professor</p>
+          </div>
+        </div>
       </div>
     </div>
   )
