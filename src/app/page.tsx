@@ -164,7 +164,9 @@ export default function CasaDaCultura2026() {
 
   const cursoAtivo = turmas.find(c => c.id === idAtivo);
   const datasAulas = cursoAtivo ? getDatasDoMes(cursoAtivo.dias) : [];
-  const diasTxt = cursoAtivo?.dias?.includes('1') ? "SEGUNDA E QUARTA" : "TERÇA E QUINTA";
+  
+  // CORREÇÃO DA LÓGICA DO TEXTO DOS DIAS
+  const diasTxt = String(cursoAtivo?.dias).includes('1') ? "SEGUNDA E QUARTA" : "TERÇA E QUINTA";
 
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
@@ -233,7 +235,6 @@ export default function CasaDaCultura2026() {
                       placeholder="NOME DO ALUNO..."
                     />
                   </td>
-                  {/* COLUNA WHATSAPP - APENAS TELA */}
                   <td className="border-2 border-black px-2 no-print bg-blue-50/20">
                     <div className="flex items-center gap-2">
                       <input 
