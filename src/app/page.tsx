@@ -133,21 +133,28 @@ export default function CasaDaCultura2026() {
   const datasAulas = cursoAtivo ? getDatasDoMes(cursoAtivo.dias) : [];
   const diasTxt = String(cursoAtivo?.dias).includes('1') ? "SEGUNDA E QUARTA" : "TERÇA E QUINTA";
 
+  // Lógica de filtro: APENAS 4 FALTAS OU MAIS
+  const alunosFiltrados = modoRelatorio 
+    ? alunosLocais.filter((aluno, i) => {
+        const faltas = Object.values(presencas[i] || {}).filter(v => v === "F").length;
+        return faltas >= 4 && aluno.nome.trim() !== "";
+      })
+    : alunosLocais;
+
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
       <style>{`
         @media print { 
           .no-print { display: none !important; } 
           .folha-container { border: none !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }
-          .relatorio-print { display: table-cell !important; }
         }
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={()=>{setTela('lista'); setModoRelatorio(false)}} className="text-xs border-4 border-black px-4 py-2 hover:bg-black hover:text-white transition-all">← Voltar</button>
         <div className="flex gap-4">
-          <button onClick={() => setModoRelatorio(!modoRelatorio)} className={`px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] ${modoRelatorio ? 'bg-yellow-400' : 'bg-white'}`}>
-            {modoRelatorio ? 'Ver Ficha de Aula' : 'Modo Busca Ativa'}
+          <button onClick={() => setModoRelatorio(!modoRelatorio)} className={`px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] ${modoRelatorio ? 'bg-red-600 text-white animate-pulse' : 'bg-white'}`}>
+            {modoRelatorio ? 'Mostrando: 4+ Faltas' : 'Filtrar Casos Críticos (4+ Faltas)'}
           </button>
           <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc]">Gerar PDF</button>
         </div>
@@ -162,50 +169,52 @@ export default function CasaDaCultura2026() {
             </div>
           </div>
           <div className="text-right">
-             <span className="text-4xl block">{modoRelatorio ? 'RELATÓRIO DE BUSCA ATIVA' : mesesNomes[mes]}</span>
+             <span className="text-4xl block text-red-600">{modoRelatorio ? 'LISTA DE ABANDONO (4+ FALTAS)' : mesesNomes[mes]}</span>
           </div>
         </header>
 
-        <table className="w-full border-collapse border-4 border-black">
-          <thead>
-            <tr className="bg-gray-100 text-[10px]">
-              <th className="border-2 border-black w-10 p-2">Nº</th>
-              <th className="border-2 border-black p-2 text-left">Aluno</th>
-              {!modoRelatorio && <th className="border-2 border-black w-32 no-print bg-blue-50">Contato ADM</th>}
-              <th className={`border-2 border-black p-2 text-left ${modoRelatorio ? 'w-auto' : 'w-48 no-print'} bg-yellow-50`}>Registro de Busca Ativa</th>
-              {!modoRelatorio && datasAulas.map(dt => <th key={dt} className="border-2 border-black w-14">{dt}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {alunosLocais.map((aluno, i) => {
-              const faltas = Object.values(presencas[i] || {}).filter(v => v === "F").length;
-              return (
-                <tr key={i} className="h-10 text-xs">
-                  <td className="border-2 border-black text-center text-gray-400">{i+1}</td>
-                  <td className="border-2 border-black px-2 font-black uppercase">
-                    <input className="w-full bg-transparent outline-none" value={aluno.nome} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
-                  </td>
-                  {!modoRelatorio && (
+        {modoRelatorio && alunosFiltrados.length === 0 ? (
+          <div className="p-20 text-center border-4 border-dashed border-gray-200 text-gray-400">
+            Nenhum aluno atingiu 4 faltas nesta turma ainda.
+          </div>
+        ) : (
+          <table className="w-full border-collapse border-4 border-black">
+            <thead>
+              <tr className="bg-gray-100 text-[10px]">
+                <th className="border-2 border-black w-10 p-2">Nº</th>
+                <th className="border-2 border-black p-2 text-left">Aluno</th>
+                <th className="border-2 border-black w-32 no-print bg-blue-50">Contato</th>
+                <th className={`border-2 border-black p-2 text-left bg-yellow-50 ${modoRelatorio ? 'w-auto' : 'w-48 no-print'}`}>Registro da Busca Ativa</th>
+                {!modoRelatorio && datasAulas.map(dt => <th key={dt} className="border-2 border-black w-14">{dt}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {alunosFiltrados.map((aluno, i) => {
+                const idxReal = aluno.posicao;
+                return (
+                  <tr key={idxReal} className="h-10 text-xs">
+                    <td className="border-2 border-black text-center text-gray-400">{i+1}</td>
+                    <td className="border-2 border-black px-2 font-black uppercase">{aluno.nome}</td>
                     <td className="border-2 border-black px-2 no-print">
                       <div className="flex items-center gap-1">
-                        <input className="w-full bg-transparent text-[10px]" value={aluno.telefone||""} placeholder="73..." onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
-                        {aluno.telefone && <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}`} target="_blank" className="text-green-500">ZAP</a>}
+                        <input className="w-full bg-transparent text-[10px]" value={aluno.telefone||""} onChange={e=>{const n=[...alunosLocais]; n[idxReal].telefone=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(idxReal, aluno.id)} />
+                        {aluno.telefone && <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}`} target="_blank" className="text-green-500 font-bold underline">ZAP</a>}
                       </div>
                     </td>
-                  )}
-                  <td className={`border-2 border-black px-2 ${modoRelatorio ? '' : 'no-print'}`}>
-                    <input className="w-full bg-transparent outline-none text-[10px] italic" value={aluno.busca_ativa||""} placeholder="Anotar contato..." onChange={e=>{const n=[...alunosLocais]; n[i].busca_ativa=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
-                  </td>
-                  {!modoRelatorio && datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer font-black ${presencas[i]?.[dt] === 'P' ? 'bg-green-100' : presencas[i]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
-                      {presencas[i]?.[dt]}
+                    <td className={`border-2 border-black px-2 ${modoRelatorio ? '' : 'no-print'}`}>
+                      <input className="w-full bg-transparent outline-none text-[10px] italic" value={aluno.busca_ativa||""} placeholder="Clique para anotar o motivo da ausência..." onChange={e=>{const n=[...alunosLocais]; n[idxReal].busca_ativa=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(idxReal, aluno.id)} />
                     </td>
-                  ))}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    {!modoRelatorio && datasAulas.map(dt => (
+                      <td key={dt} onClick={() => alternarPresenca(idxReal, dt)} className={`border-2 border-black text-center cursor-pointer font-black ${presencas[idxReal]?.[dt] === 'P' ? 'bg-green-100' : presencas[idxReal]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                        {presencas[idxReal]?.[dt]}
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
