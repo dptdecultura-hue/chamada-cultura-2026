@@ -45,44 +45,61 @@ export default function CasaDaCultura2026() {
   async function fetchDados() {
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
     const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
+    
     if (alData) setAlunosLocais(alData);
+    
     const gridPre: any = {};
     preData?.forEach(p => {
-      if(!gridPre[p.aluno_posicao]) gridPre[p.aluno_posicao] = {};
-      gridPre[p.aluno_posicao][p.data_aula] = p.status;
+      // USANDO ALUNO_ID COMO CHAVE PRIMÁRIA NA TELA
+      if(!gridPre[p.aluno_id]) gridPre[p.aluno_id] = {};
+      gridPre[p.aluno_id][p.data_aula] = p.status;
     });
     setPresencas(gridPre);
   }
 
-  const salvarAlunoNoBanco = async (indexOriginal: number) => {
-    const aluno = alunosLocais[indexOriginal];
+  const salvarAlunoNoBanco = async (id: any, index: number) => {
+    const aluno = alunosLocais[index];
     if (aluno?.nome?.trim() !== "") {
-      await supabase.from('alunos').upsert({ 
-        id: aluno.id || undefined, 
+      const { data } = await supabase.from('alunos').upsert({ 
+        id: id || undefined, 
         turma_id: idAtivo, 
         nome: aluno.nome.trim().toUpperCase(), 
         telefone: aluno.telefone || "",
         busca_ativa: aluno.busca_ativa || "",
-        posicao: indexOriginal 
-      });
+        posicao: index 
+      }).select();
+      
+      if (data && !id) {
+        const novos = [...alunosLocais];
+        novos[index].id = data[0].id;
+        setAlunosLocais(novos);
+      }
       fetchTurmas();
     }
   };
 
-  const alternarPresenca = async (alunoPosOriginal: number, dataAula: string) => {
-    const atual = presencas[alunoPosOriginal]?.[dataAula] || "";
+  const alternarPresenca = async (alunoId: any, dataAula: string, alunoPos: number) => {
+    if (!alunoId) return; // Segurança para não marcar presenca em aluno sem ID salvo
+
+    const atual = presencas[alunoId]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
     
-    // Atualiza o estado local usando a posição real (index fixo) do aluno
     setPresencas((prev: any) => ({ 
       ...prev, 
-      [alunoPosOriginal]: { ...(prev[alunoPosOriginal] || {}), [dataAula]: novoStatus } 
+      [alunoId]: { ...(prev[alunoId] || {}), [dataAula]: novoStatus } 
     }));
 
     if (novoStatus === "") {
-      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_posicao: alunoPosOriginal, data_aula: dataAula });
+      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_id: alunoId, data_aula: dataAula });
     } else {
-      await supabase.from('frequencia').upsert({ turma_id: idAtivo, mes, aluno_posicao: alunoPosOriginal, data_aula: dataAula, status: novoStatus });
+      await supabase.from('frequencia').upsert({ 
+        turma_id: idAtivo, 
+        mes, 
+        aluno_id: alunoId, 
+        aluno_posicao: alunoPos, 
+        data_aula: dataAula, 
+        status: novoStatus 
+      });
     }
   };
 
@@ -156,17 +173,14 @@ export default function CasaDaCultura2026() {
     return datas.slice(0, 10);
   })() : [];
 
-  // Mapeamos os alunos para manter o INDEX ORIGINAL junto deles
-  const alunosComIndex = alunosLocais.map((a, i) => ({ ...a, indexOriginal: i }));
-
   const alunosFiltrados = modoRelatorio 
-    ? alunosComIndex.filter((aluno) => {
-        const hist = presencas[aluno.indexOriginal] || {};
+    ? alunosLocais.filter((aluno) => {
+        const hist = presencas[aluno.id] || {};
         const faltas = Object.values(hist).filter(v => v === "F").length;
         const temPresenca = Object.values(hist).some(v => v === "P");
         return (faltas >= 4 || !temPresenca) && aluno.nome.trim() !== "";
       })
-    : alunosComIndex;
+    : alunosLocais;
 
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
@@ -205,11 +219,12 @@ export default function CasaDaCultura2026() {
           </thead>
           <tbody>
             {alunosFiltrados.map((aluno, i) => {
-              const idxOrig = aluno.indexOriginal;
-              const hist = presencas[idxOrig] || {};
+              const hist = presencas[aluno.id] || {};
               const faltas = Object.values(hist).filter(v => v === "F").length;
+              const posReal = alunosLocais.findIndex(a => a.id === aluno.id);
+              
               return (
-                <tr key={idxOrig} className="h-10 text-xs">
+                <tr key={aluno.id || `temp-${i}`} className="h-10 text-xs">
                   <td className="border-2 border-black text-center text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
                     <input 
@@ -217,10 +232,11 @@ export default function CasaDaCultura2026() {
                       value={aluno.nome} 
                       onChange={e=>{
                         const n=[...alunosLocais]; 
-                        n[idxOrig].nome=e.target.value.toUpperCase(); 
+                        const idx = n.findIndex(a => a.id === aluno.id);
+                        n[idx].nome=e.target.value.toUpperCase(); 
                         setAlunosLocais(n)
                       }} 
-                      onBlur={()=>salvarAlunoNoBanco(idxOrig)} 
+                      onBlur={()=>salvarAlunoNoBanco(aluno.id, posReal === -1 ? i : posReal)} 
                     />
                   </td>
                   <td className={`border-2 border-black text-center font-black ${faltas >= 4 ? 'bg-red-600 text-white' : 'bg-gray-50 text-red-600'}`}>
@@ -228,16 +244,16 @@ export default function CasaDaCultura2026() {
                   </td>
                   <td className="border-2 border-black px-2 no-print">
                     <div className="flex items-center gap-1">
-                      <input className="w-full bg-transparent text-[9px]" value={aluno.telefone||""} onChange={e=>{const n=[...alunosLocais]; n[idxOrig].telefone=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(idxOrig)} />
+                      <input className="w-full bg-transparent text-[9px]" value={aluno.telefone||""} onChange={e=>{const n=[...alunosLocais]; const idx = n.findIndex(a => a.id === aluno.id); n[idx].telefone=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(aluno.id, posReal === -1 ? i : posReal)} />
                       {aluno.telefone && <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}`} target="_blank" className="text-green-500 font-bold">ZAP</a>}
                     </div>
                   </td>
                   <td className="border-2 border-black px-2">
-                    <input className="w-full bg-transparent outline-none text-[10px] italic" value={aluno.busca_ativa||""} placeholder="..." onChange={e=>{const n=[...alunosLocais]; n[idxOrig].busca_ativa=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(idxOrig)} />
+                    <input className="w-full bg-transparent outline-none text-[10px] italic" value={aluno.busca_ativa||""} placeholder="..." onChange={e=>{const n=[...alunosLocais]; const idx = n.findIndex(a => a.id === aluno.id); n[idx].busca_ativa=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(aluno.id, posReal === -1 ? i : posReal)} />
                   </td>
                   {!modoRelatorio && datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(idxOrig, dt)} className={`border-2 border-black text-center cursor-pointer font-black text-base ${presencas[idxOrig]?.[dt] === 'P' ? 'bg-green-100' : presencas[idxOrig]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
-                      {presencas[idxOrig]?.[dt]}
+                    <td key={dt} onClick={() => alternarPresenca(aluno.id, dt, posReal)} className={`border-2 border-black text-center cursor-pointer font-black text-base ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                      {presencas[aluno.id]?.[dt]}
                     </td>
                   ))}
                 </tr>
