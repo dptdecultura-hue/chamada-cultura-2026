@@ -50,26 +50,24 @@ export default function CasaDaCultura2026() {
     
     const gridPre: any = {};
     preData?.forEach(p => {
-      // USANDO ALUNO_ID COMO CHAVE PRIMÁRIA NA TELA
       if(!gridPre[p.aluno_id]) gridPre[p.aluno_id] = {};
       gridPre[p.aluno_id][p.data_aula] = p.status;
     });
     setPresencas(gridPre);
   }
 
-  const salvarAlunoNoBanco = async (id: any, index: number) => {
-    const aluno = alunosLocais[index];
-    if (aluno?.nome?.trim() !== "") {
+  const salvarAlunoNoBanco = async (alunoObj: any, index: number) => {
+    if (alunoObj?.nome?.trim() !== "") {
       const { data } = await supabase.from('alunos').upsert({ 
-        id: id || undefined, 
+        id: alunoObj.id || undefined, 
         turma_id: idAtivo, 
-        nome: aluno.nome.trim().toUpperCase(), 
-        telefone: aluno.telefone || "",
-        busca_ativa: aluno.busca_ativa || "",
+        nome: alunoObj.nome.trim().toUpperCase(), 
+        telefone: alunoObj.telefone || "",
+        busca_ativa: alunoObj.busca_ativa || "",
         posicao: index 
       }).select();
       
-      if (data && !id) {
+      if (data && !alunoObj.id) {
         const novos = [...alunosLocais];
         novos[index].id = data[0].id;
         setAlunosLocais(novos);
@@ -78,25 +76,39 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  const alternarPresenca = async (alunoId: any, dataAula: string, alunoPos: number) => {
-    if (!alunoId) return; // Segurança para não marcar presenca em aluno sem ID salvo
+  const alternarPresenca = async (alunoId: any, dataAula: string, pos: number) => {
+    if (!alunoId) {
+      alert("Salve o nome do aluno antes de marcar presença.");
+      return;
+    }
 
-    const atual = presencas[alunoId]?.[dataAula] || "";
-    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
-    
-    setPresencas((prev: any) => ({ 
-      ...prev, 
-      [alunoId]: { ...(prev[alunoId] || {}), [dataAula]: novoStatus } 
-    }));
+    const valorAtual = presencas[alunoId]?.[dataAula] || "";
+    let novoStatus = "";
+    if (valorAtual === "") novoStatus = "P";
+    else if (valorAtual === "P") novoStatus = "F";
+    else novoStatus = "";
+
+    // Atualização do Estado Local IMUTÁVEL (Mais seguro para evitar duplicação em tela)
+    setPresencas((prev: any) => {
+      const novoEstado = { ...prev };
+      if (!novoEstado[alunoId]) novoEstado[alunoId] = {};
+      novoEstado[alunoId] = { ...novoEstado[alunoId], [dataAula]: novoStatus };
+      return novoEstado;
+    });
 
     if (novoStatus === "") {
-      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_id: alunoId, data_aula: dataAula });
+      await supabase.from('frequencia').delete().match({ 
+        turma_id: idAtivo, 
+        mes, 
+        aluno_id: alunoId, 
+        data_aula: dataAula 
+      });
     } else {
       await supabase.from('frequencia').upsert({ 
         turma_id: idAtivo, 
         mes, 
         aluno_id: alunoId, 
-        aluno_posicao: alunoPos, 
+        aluno_posicao: pos, 
         data_aula: dataAula, 
         status: novoStatus 
       });
@@ -108,7 +120,7 @@ export default function CasaDaCultura2026() {
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic">Casa da Cultura <span className="text-blue-600">2026</span></h1>
+        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6">Casa da Cultura <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
             <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
@@ -140,7 +152,7 @@ export default function CasaDaCultura2026() {
                   const lotado = n >= limit;
                   return (
                     <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`relative bg-white border-4 p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center ${lotado ? 'border-yellow-500 bg-yellow-50 shadow-[6px_6px_0px_#eab308]' : 'border-black shadow-[6px_6px_0px_#000]'}`}>
-                      {lotado && <span className="absolute -top-3 -right-3 bg-yellow-400 border-2 border-black px-2 py-0.5 text-[10px] font-black">LOTADO</span>}
+                      {lotado && <span className="absolute -top-3 -right-3 bg-yellow-400 border-2 border-black px-2 py-0.5 text-[10px]">LOTADO</span>}
                       <div className="flex flex-col">
                         <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
                         <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
@@ -202,7 +214,7 @@ export default function CasaDaCultura2026() {
             <span className="text-xs">{cursoAtivo?.oficina} | {cursoAtivo?.horario}</span>
           </div>
           <div className="text-right">
-             <span className="text-4xl block text-red-600 font-black tracking-tighter leading-none">{modoRelatorio ? 'BUSCA ATIVA' : mesesNomes[mes]}</span>
+             <span className="text-4xl block text-red-600 leading-none">{modoRelatorio ? 'BUSCA ATIVA' : mesesNomes[mes]}</span>
           </div>
         </header>
 
@@ -224,7 +236,7 @@ export default function CasaDaCultura2026() {
               const posReal = alunosLocais.findIndex(a => a.id === aluno.id);
               
               return (
-                <tr key={aluno.id || `temp-${i}`} className="h-10 text-xs">
+                <tr key={`${aluno.id}-${i}`} className="h-10 text-xs">
                   <td className="border-2 border-black text-center text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
                     <input 
@@ -233,10 +245,9 @@ export default function CasaDaCultura2026() {
                       onChange={e=>{
                         const n=[...alunosLocais]; 
                         const idx = n.findIndex(a => a.id === aluno.id);
-                        n[idx].nome=e.target.value.toUpperCase(); 
-                        setAlunosLocais(n)
+                        if(idx !== -1) { n[idx].nome=e.target.value.toUpperCase(); setAlunosLocais(n); }
                       }} 
-                      onBlur={()=>salvarAlunoNoBanco(aluno.id, posReal === -1 ? i : posReal)} 
+                      onBlur={()=>salvarAlunoNoBanco(aluno, posReal)} 
                     />
                   </td>
                   <td className={`border-2 border-black text-center font-black ${faltas >= 4 ? 'bg-red-600 text-white' : 'bg-gray-50 text-red-600'}`}>
@@ -244,15 +255,17 @@ export default function CasaDaCultura2026() {
                   </td>
                   <td className="border-2 border-black px-2 no-print">
                     <div className="flex items-center gap-1">
-                      <input className="w-full bg-transparent text-[9px]" value={aluno.telefone||""} onChange={e=>{const n=[...alunosLocais]; const idx = n.findIndex(a => a.id === aluno.id); n[idx].telefone=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(aluno.id, posReal === -1 ? i : posReal)} />
+                      <input className="w-full bg-transparent text-[9px]" value={aluno.telefone||""} onChange={e=>{const n=[...alunosLocais]; const idx = n.findIndex(a => a.id === aluno.id); if(idx !== -1){ n[idx].telefone=e.target.value; setAlunosLocais(n); }}} onBlur={()=>salvarAlunoNoBanco(aluno, posReal)} />
                       {aluno.telefone && <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}`} target="_blank" className="text-green-500 font-bold">ZAP</a>}
                     </div>
                   </td>
                   <td className="border-2 border-black px-2">
-                    <input className="w-full bg-transparent outline-none text-[10px] italic" value={aluno.busca_ativa||""} placeholder="..." onChange={e=>{const n=[...alunosLocais]; const idx = n.findIndex(a => a.id === aluno.id); n[idx].busca_ativa=e.target.value; setAlunosLocais(n)}} onBlur={()=>salvarAlunoNoBanco(aluno.id, posReal === -1 ? i : posReal)} />
+                    <input className="w-full bg-transparent outline-none text-[10px] italic" value={aluno.busca_ativa||""} placeholder="..." onChange={e=>{const n=[...alunosLocais]; const idx = n.findIndex(a => a.id === aluno.id); if(idx !== -1){ n[idx].busca_ativa=e.target.value; setAlunosLocais(n); }}} onBlur={()=>salvarAlunoNoBanco(aluno, posReal)} />
                   </td>
                   {!modoRelatorio && datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(aluno.id, dt, posReal)} className={`border-2 border-black text-center cursor-pointer font-black text-base ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                    <td key={`${aluno.id}-${dt}`} 
+                        onClick={(e) => { e.stopPropagation(); alternarPresenca(aluno.id, dt, posReal); }} 
+                        className={`border-2 border-black text-center cursor-pointer font-black text-base select-none ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
                       {presencas[aluno.id]?.[dt]}
                     </td>
                   ))}
