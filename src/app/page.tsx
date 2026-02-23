@@ -102,12 +102,12 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic uppercase">Carregando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic uppercase tracking-tighter">Carregando...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6">Casa da Cultura <span className="text-blue-600">2026</span></h1>
+        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic">Casa da Cultura <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
             <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
@@ -122,15 +122,32 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
-    const renderCard = (c: any) => (
-      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className="bg-white border-4 border-black p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center shadow-[6px_6px_0px_#000]">
-        <div className="flex flex-col">
-          <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
-          <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
+    const renderCard = (c: any) => {
+      const n = contagemAlunos[c.id] || 0;
+      const limit = obterLimiteOficina(c.oficina);
+      const estaLotada = n === limit;
+      const estaExcedida = n > limit;
+
+      return (
+        <div 
+          key={c.id} 
+          onClick={() => {setIdAtivo(c.id); setTela('chamada');}} 
+          className={`border-4 border-black p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center shadow-[6px_6px_0px_#000] 
+            ${estaExcedida ? 'bg-red-500 text-white' : estaLotada ? 'bg-yellow-400 text-black' : 'bg-white text-black'}`}
+        >
+          <div className="flex flex-col text-left">
+            <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
+            <span className={`text-[10px] mt-1 font-bold ${estaExcedida ? 'text-white' : 'text-gray-500'}`}>{c.oficina}</span>
+          </div>
+          <div className="text-right flex flex-col items-end">
+            <span className="text-lg font-black">{n} / {limit}</span>
+            {estaLotada && !estaExcedida && <span className="text-[8px] font-black italic">LOTADA</span>}
+            {estaExcedida && <span className="text-[8px] font-black italic">EXCEDIDA</span>}
+          </div>
         </div>
-        <span className="text-lg">{contagemAlunos[c.id] || 0} / {obterLimiteOficina(c.oficina)}</span>
-      </div>
-    );
+      );
+    };
+
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1">← Voltar</button>
@@ -167,44 +184,15 @@ export default function CasaDaCultura2026() {
       <style>{`
         @media print { 
           @page { size: A4 landscape; margin: 5mm; }
-          html, body { 
-            background: #fff !important; 
-            margin: 0 !important; 
-            padding: 0 !important;
-            width: 100%;
-            height: 100%;
-          }
-          /* Esconde tudo o que não é a folha */
+          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
           nav, .no-print, button { display: none !important; }
-          
-          /* Ajusta o container para ocupar a folha toda */
           .folha-container { 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100% !important; 
-            max-width: none !important;
-            margin: 0 !important; 
-            padding: 5mm !important;
-            border: none !important;
-            box-shadow: none !important;
-            background: #fff !important;
+            position: absolute; top: 0; left: 0; width: 100% !important; 
+            max-width: none !important; margin: 0 !important; padding: 5mm !important;
+            border: none !important; box-shadow: none !important; background: #fff !important;
           }
-
-          /* Garante que a tabela use o espaço máximo */
-          table { 
-            width: 100% !important; 
-            table-layout: fixed; /* Evita que a tabela "fuja" da folha */
-            border: 2px solid black !important;
-          }
-          th, td { 
-            border: 1px solid black !important; 
-            padding: 2px !important;
-            font-size: 10px !important; /* Diminui a fonte para caber */
-          }
-          
-          /* Esconde o fundo de cores das células para economizar tinta se preferir, 
-             ou force se quiser as cores: */
+          table { width: 100% !important; table-layout: fixed; border: 2px solid black !important; }
+          th, td { border: 1px solid black !important; padding: 2px !important; font-size: 10px !important; }
           .bg-green-100 { background-color: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
           .bg-red-100 { background-color: #fef2f2 !important; -webkit-print-color-adjust: exact; }
         }
@@ -217,7 +205,7 @@ export default function CasaDaCultura2026() {
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black">Imprimir</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc]">Imprimir</button>
         </div>
       </nav>
 
@@ -272,7 +260,7 @@ export default function CasaDaCultura2026() {
         </table>
         
         <footer className="mt-8 flex justify-between items-end">
-           <div className="flex flex-col gap-1">
+           <div className="flex flex-col gap-1 text-left">
              <p className="text-[8px] text-gray-500 font-bold tracking-widest">LEGENDA: (P) PRESENÇA | (F) FALTA | (J) JUSTIFICADO</p>
              <p className="text-[7px] text-gray-300 italic">Gerado automaticamente - Sistema Casa da Cultura 2026</p>
            </div>
