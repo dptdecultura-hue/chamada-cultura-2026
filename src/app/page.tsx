@@ -102,12 +102,12 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic">Carregando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic uppercase">Carregando...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic">Casa da Cultura <span className="text-blue-600">2026</span></h1>
+        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6">Casa da Cultura <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
             <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
@@ -163,7 +163,53 @@ export default function CasaDaCultura2026() {
   const datasAulas = getDatas();
 
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white">
+    <div className="min-h-screen italic font-black uppercase bg-[#F1F5F9]">
+      <style>{`
+        @media print { 
+          @page { size: A4 landscape; margin: 5mm; }
+          html, body { 
+            background: #fff !important; 
+            margin: 0 !important; 
+            padding: 0 !important;
+            width: 100%;
+            height: 100%;
+          }
+          /* Esconde tudo o que não é a folha */
+          nav, .no-print, button { display: none !important; }
+          
+          /* Ajusta o container para ocupar a folha toda */
+          .folha-container { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important; 
+            max-width: none !important;
+            margin: 0 !important; 
+            padding: 5mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #fff !important;
+          }
+
+          /* Garante que a tabela use o espaço máximo */
+          table { 
+            width: 100% !important; 
+            table-layout: fixed; /* Evita que a tabela "fuja" da folha */
+            border: 2px solid black !important;
+          }
+          th, td { 
+            border: 1px solid black !important; 
+            padding: 2px !important;
+            font-size: 10px !important; /* Diminui a fonte para caber */
+          }
+          
+          /* Esconde o fundo de cores das células para economizar tinta se preferir, 
+             ou force se quiser as cores: */
+          .bg-green-100 { background-color: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
+          .bg-red-100 { background-color: #fef2f2 !important; -webkit-print-color-adjust: exact; }
+        }
+      `}</style>
+
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2">← Voltar</button>
         <div className="flex gap-4">
@@ -175,63 +221,66 @@ export default function CasaDaCultura2026() {
         </div>
       </nav>
 
-      <div className="folha-container max-w-[1300px] mx-auto bg-white p-10 mt-6 border-4 border-black">
-        <header className="flex justify-between items-end mb-8 border-b-8 border-black pb-4">
+      <div className="folha-container max-w-[1300px] mx-auto bg-white p-10 mt-6 border-4 border-black shadow-2xl mb-10">
+        <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4">
           <div>
-            <h1 className="text-6xl tracking-tighter leading-none mb-2">{cursoAtivo?.professor}</h1>
-            <span className="text-lg">{cursoAtivo?.oficina} | {cursoAtivo?.horario}</span>
+            <h1 className="text-5xl tracking-tighter leading-none mb-1">{cursoAtivo?.professor}</h1>
+            <span className="text-sm font-bold">{cursoAtivo?.oficina} | {cursoAtivo?.horario}</span>
           </div>
           <div className="text-right">
-             <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
+             <span className="text-4xl block leading-none">{mesesNomes[mes]}</span>
+             <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Casa da Cultura 2026</span>
           </div>
         </header>
 
-        <table className="w-full border-collapse border-4 border-black">
+        <table className="w-full border-collapse border-[3px] border-black">
           <thead>
             <tr className="bg-gray-100 uppercase">
-              <th className="border-2 border-black w-10 p-2 text-[10px]">Nº</th>
-              <th className="border-2 border-black p-2 text-left">Aluno</th>
-              <th className="border-2 border-black p-2 text-left w-44 no-print">Contato</th>
-              {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-14 text-[9px]">{dt}</th>)}
-              <th className="border-2 border-black w-14 text-[9px] no-print">Faltas</th>
-              {/* COLUNA DE EXCLUSÃO CABEÇALHO */}
-              <th className="border-2 border-black w-12 no-print bg-red-50 text-red-600 text-[8px]">DEL</th>
+              <th className="border-2 border-black w-8 p-1 text-[9px]">Nº</th>
+              <th className="border-2 border-black p-1 text-left text-[11px]">Aluno</th>
+              <th className="border-2 border-black p-1 text-left w-36 no-print">Contato</th>
+              {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-12 text-[8px]">{dt}</th>)}
+              <th className="border-2 border-black w-12 text-[8px] no-print">Faltas</th>
+              <th className="border-2 border-black w-10 no-print bg-red-50 text-red-600 text-[8px]">DEL</th>
             </tr>
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
               const faltas = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
-                <tr key={aluno.id || i} className="h-12">
-                  <td className="border-2 border-black text-center text-[10px] text-gray-400 font-bold">{i+1}</td>
+                <tr key={aluno.id || i} className="h-9">
+                  <td className="border-2 border-black text-center text-[9px] text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : ''}`} value={aluno.nome || ""} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
+                    <input className={`w-full bg-transparent outline-none font-black text-[11px] ${faltas >= 3 ? 'text-red-600' : ''}`} value={aluno.nome || ""} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   <td className="border-2 border-black px-2 no-print bg-blue-50/20">
-                    <input className="w-full bg-transparent text-[10px]" value={aluno.telefone || ""} onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
+                    <input className="w-full bg-transparent text-[9px]" value={aluno.telefone || ""} onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   {datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(aluno, dt, i)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                    <td key={dt} onClick={() => alternarPresenca(aluno, dt, i)} className={`border-2 border-black text-center cursor-pointer text-lg font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
                       {presencas[aluno.id]?.[dt]}
                     </td>
                   ))}
-                  <td className="border-2 border-black text-center no-print font-black">{faltas || ""}</td>
-                  
-                  {/* CÉLULA DE EXCLUSÃO BEM VISÍVEL */}
+                  <td className="border-2 border-black text-center no-print font-black text-xs">{faltas || ""}</td>
                   <td className="border-2 border-black text-center no-print bg-gray-50">
-                    <button 
-                      onClick={() => excluirAluno(aluno.id, i)} 
-                      className="w-full h-full text-red-400 hover:text-white hover:bg-red-600 transition-colors font-black text-sm"
-                      title="Excluir Aluno"
-                    >
-                      ×
-                    </button>
+                    <button onClick={() => excluirAluno(aluno.id, i)} className="w-full h-full text-red-400 hover:bg-red-600 hover:text-white transition-colors">×</button>
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
+        
+        <footer className="mt-8 flex justify-between items-end">
+           <div className="flex flex-col gap-1">
+             <p className="text-[8px] text-gray-500 font-bold tracking-widest">LEGENDA: (P) PRESENÇA | (F) FALTA | (J) JUSTIFICADO</p>
+             <p className="text-[7px] text-gray-300 italic">Gerado automaticamente - Sistema Casa da Cultura 2026</p>
+           </div>
+           <div className="flex flex-col items-center">
+             <div className="w-64 border-t-2 border-black pt-1"></div>
+             <p className="text-[9px] font-black uppercase">Assinatura do Professor</p>
+           </div>
+        </footer>
       </div>
     </div>
   )
