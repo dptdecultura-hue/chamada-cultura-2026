@@ -44,12 +44,9 @@ export default function CasaDaCultura2026() {
   async function fetchDados() {
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
     const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
-    
     if (alData) setAlunosLocais(alData);
-    
     const gridPre: any = {};
     preData?.forEach(p => {
-      // AJUSTE: Usando aluno_id para evitar duplicidade por posição
       const key = p.aluno_id || p.aluno_posicao; 
       if(!gridPre[key]) gridPre[key] = {};
       gridPre[key][p.data_aula] = p.status;
@@ -67,7 +64,6 @@ export default function CasaDaCultura2026() {
         telefone: aluno.telefone || "",
         posicao: index 
       }).select();
-      
       if (data && !idReal) {
         const n = [...alunosLocais];
         n[index].id = data[0].id;
@@ -77,56 +73,48 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  const alternarPresenca = async (aluno: any, dataAula: string, index: number) => {
-    if (!aluno.id) {
-      alert("Salve o nome do aluno antes de marcar presença.");
+  const excluirAluno = async (id: any, index: number) => {
+    if (!id) {
+      const n = [...alunosLocais];
+      n.splice(index, 1);
+      setAlunosLocais(n);
       return;
     }
-
-    const atual = presencas[aluno.id]?.[dataAula] || "";
-    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
-    
-    // Atualiza estado local de forma segura
-    setPresencas((prev: any) => ({
-      ...prev,
-      [aluno.id]: { ...(prev[aluno.id] || {}), [dataAula]: novoStatus }
-    }));
-    
-    if (novoStatus === "") {
-      await supabase.from('frequencia').delete().match({ 
-        turma_id: idAtivo, 
-        mes, 
-        aluno_id: aluno.id, 
-        data_aula: dataAula 
-      });
-    } else {
-      await supabase.from('frequencia').upsert({ 
-        turma_id: idAtivo, 
-        mes, 
-        aluno_id: aluno.id, 
-        aluno_posicao: index,
-        data_aula: dataAula, 
-        status: novoStatus 
-      });
+    if (confirm("EXCLUIR ALUNO DEFINITIVAMENTE?")) {
+      await supabase.from('frequencia').delete().eq('aluno_id', id);
+      await supabase.from('alunos').delete().eq('id', id);
+      const n = [...alunosLocais];
+      n.splice(index, 1);
+      setAlunosLocais(n);
+      fetchTurmas();
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse uppercase italic">Carregando...</div>;
+  const alternarPresenca = async (aluno: any, dataAula: string, index: number) => {
+    if (!aluno.id) return;
+    const atual = presencas[aluno.id]?.[dataAula] || "";
+    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
+    setPresencas((prev: any) => ({ ...prev, [aluno.id]: { ...(prev[aluno.id] || {}), [dataAula]: novoStatus } }));
+    if (novoStatus === "") {
+      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_id: aluno.id, data_aula: dataAula });
+    } else {
+      await supabase.from('frequencia').upsert({ turma_id: idAtivo, mes, aluno_id: aluno.id, aluno_posicao: index, data_aula: dataAula, status: novoStatus });
+    }
+  };
+
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic">Carregando...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic">Casa da Cultura <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...new Set(turmas.map(t => t.professor))].sort().map(p => {
-            const totalProf = turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
-            return (
-              <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
-                {p}
-                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalProf} ALUNOS</span>
-              </button>
-            );
-          })}
+          {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
+            <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
+              {p}
+              <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0)} ALUNOS</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -134,22 +122,15 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
-    const renderCard = (c: any) => {
-      const n = contagemAlunos[c.id] || 0;
-      const limit = obterLimiteOficina(c.oficina);
-      return (
-        <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className="bg-white border-4 border-black p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center shadow-[6px_6px_0px_#000]">
-          <div className="flex flex-col">
-            <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
-            <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
-          </div>
-          <div className="text-right">
-            <span className="text-lg">{n} / {limit}</span>
-          </div>
+    const renderCard = (c: any) => (
+      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className="bg-white border-4 border-black p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center shadow-[6px_6px_0px_#000]">
+        <div className="flex flex-col">
+          <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
+          <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
         </div>
-      );
-    }
-
+        <span className="text-lg">{contagemAlunos[c.id] || 0} / {obterLimiteOficina(c.oficina)}</span>
+      </div>
+    );
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1">← Voltar</button>
@@ -200,7 +181,7 @@ export default function CasaDaCultura2026() {
             <h1 className="text-6xl tracking-tighter leading-none mb-2">{cursoAtivo?.professor}</h1>
             <span className="text-lg">{cursoAtivo?.oficina} | {cursoAtivo?.horario}</span>
           </div>
-          <div className="text-right italic">
+          <div className="text-right">
              <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
           </div>
         </header>
@@ -213,38 +194,21 @@ export default function CasaDaCultura2026() {
               <th className="border-2 border-black p-2 text-left w-44 no-print">Contato</th>
               {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-14 text-[9px]">{dt}</th>)}
               <th className="border-2 border-black w-14 text-[9px] no-print">Faltas</th>
+              {/* COLUNA DE EXCLUSÃO CABEÇALHO */}
+              <th className="border-2 border-black w-12 no-print bg-red-50 text-red-600 text-[8px]">DEL</th>
             </tr>
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
-              const idParaKey = aluno.id || i;
               const faltas = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
-                <tr key={idParaKey} className="h-10">
-                  <td className="border-2 border-black text-center text-[10px] text-gray-400">{i+1}</td>
+                <tr key={aluno.id || i} className="h-12">
+                  <td className="border-2 border-black text-center text-[10px] text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input 
-                      className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : ''}`}
-                      value={aluno.nome || ""}
-                      onChange={(e) => {
-                        const n = [...alunosLocais];
-                        n[i].nome = e.target.value.toUpperCase();
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(i, aluno.id)}
-                    />
+                    <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : ''}`} value={aluno.nome || ""} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
-                  <td className="border-2 border-black px-2 no-print">
-                    <input 
-                      className="w-full bg-transparent text-[10px]"
-                      value={aluno.telefone || ""}
-                      onChange={(e) => {
-                        const n = [...alunosLocais];
-                        n[i].telefone = e.target.value;
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(i, aluno.id)}
-                    />
+                  <td className="border-2 border-black px-2 no-print bg-blue-50/20">
+                    <input className="w-full bg-transparent text-[10px]" value={aluno.telefone || ""} onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   {datasAulas.map(dt => (
                     <td key={dt} onClick={() => alternarPresenca(aluno, dt, i)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
@@ -252,6 +216,17 @@ export default function CasaDaCultura2026() {
                     </td>
                   ))}
                   <td className="border-2 border-black text-center no-print font-black">{faltas || ""}</td>
+                  
+                  {/* CÉLULA DE EXCLUSÃO BEM VISÍVEL */}
+                  <td className="border-2 border-black text-center no-print bg-gray-50">
+                    <button 
+                      onClick={() => excluirAluno(aluno.id, i)} 
+                      className="w-full h-full text-red-400 hover:text-white hover:bg-red-600 transition-colors font-black text-sm"
+                      title="Excluir Aluno"
+                    >
+                      ×
+                    </button>
+                  </td>
                 </tr>
               )
             })}
