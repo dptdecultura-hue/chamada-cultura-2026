@@ -63,7 +63,6 @@ export default function CasaDaCultura2026() {
         telefone: aluno.telefone || "",
         posicao: index 
       }).select();
-      
       if (data && !idReal) {
         const n = [...alunosLocais];
         n[index].id = data[0].id;
@@ -75,23 +74,26 @@ export default function CasaDaCultura2026() {
 
   const getDatasDoMes = (diasSemanaInput: any) => {
     const datas = [];
-    const diasLimpos = String(diasSemanaInput).replace(/[^0-9,]/g, '');
-    const diasSemana = diasLimpos.split(',').map(Number);
+    const inputStr = String(diasSemanaInput);
+    let diasAlvo: number[] = [];
+    
+    if (inputStr.includes('2')) diasAlvo = [2, 4]; // TERÇA (2) E QUINTA (4)
+    else diasAlvo = [1, 3]; // SEGUNDA (1) E QUARTA (3)
+
     const ultimoDia = new Date(2026, mes + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
       const dataProd = new Date(2026, mes, d);
-      if (diasSemana.includes(dataProd.getDay())) {
+      if (diasAlvo.includes(dataProd.getDay())) {
         datas.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
       }
     }
-    return datas; // REMOVIDO O SLICE(0, 10) PARA MOSTRAR TODAS AS DATAS
+    return datas;
   };
 
   const alternarPresenca = async (alunoPos: number, dataAula: string) => {
     const atual = presencas[alunoPos]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
     setPresencas((prev: any) => ({ ...prev, [alunoPos]: { ...(prev[alunoPos] || {}), [dataAula]: novoStatus } }));
-    
     if (novoStatus === "") {
       await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_posicao: alunoPos, data_aula: dataAula });
     } else {
@@ -106,15 +108,12 @@ export default function CasaDaCultura2026() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic">Casa da Cultura <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...new Set(turmas.map(t => t.professor))].sort().map(p => {
-            const totalProf = turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
-            return (
-              <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all active:shadow-none active:translate-x-[2px]">
-                {p}
-                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalProf} ALUNOS</span>
-              </button>
-            );
-          })}
+          {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
+            <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
+              {p}
+              <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0)} ALUNOS</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -122,16 +121,12 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
-    const segQua = turmasDoProf.filter(t => String(t.dias).includes('1'));
-    const terQui = turmasDoProf.filter(t => String(t.dias).includes('2'));
-    
     const renderCard = (c: any) => {
       const n = contagemAlunos[c.id] || 0;
       const limit = obterLimiteOficina(c.oficina);
       const lotado = n >= limit;
       return (
         <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`relative bg-white border-4 p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center ${lotado ? 'border-yellow-500 bg-yellow-50 shadow-[6px_6px_0px_#eab308]' : 'border-black shadow-[6px_6px_0px_#000]'}`}>
-          {lotado && <span className="absolute -top-3 -right-3 bg-yellow-400 border-2 border-black px-2 py-0.5 text-[10px]">LOTADO</span>}
           <div className="flex flex-col">
             <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
             <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
@@ -143,19 +138,18 @@ export default function CasaDaCultura2026() {
         </div>
       );
     }
-
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 hover:bg-black hover:text-white transition-all">← Voltar</button>
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1">← Voltar</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter">{profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
             <h3 className="bg-blue-600 text-white p-3 mb-6 text-center border-4 border-black shadow-[6px_6px_0px_#000]">Segunda e Quarta</h3>
-            <div className="space-y-4">{segQua.map(renderCard)}</div>
+            <div className="space-y-4">{turmasDoProf.filter(t => String(t.dias).includes('1')).map(renderCard)}</div>
           </div>
           <div>
             <h3 className="bg-red-600 text-white p-3 mb-6 text-center border-4 border-black shadow-[6px_6px_0px_#000]">Terça e Quinta</h3>
-            <div className="space-y-4">{terQui.map(renderCard)}</div>
+            <div className="space-y-4">{turmasDoProf.filter(t => String(t.dias).includes('2')).map(renderCard)}</div>
           </div>
         </div>
       </div>
@@ -164,8 +158,7 @@ export default function CasaDaCultura2026() {
 
   const cursoAtivo = turmas.find(c => c.id === idAtivo);
   const datasAulas = cursoAtivo ? getDatasDoMes(cursoAtivo.dias) : [];
-  
-  const diasTxt = String(cursoAtivo?.dias).includes('1') ? "SEGUNDA E QUARTA" : "TERÇA E QUINTA";
+  const diasTxt = String(cursoAtivo?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
 
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
@@ -173,20 +166,20 @@ export default function CasaDaCultura2026() {
         @media print { 
           .no-print { display: none !important; } 
           .folha-container { border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }
-          table { border-width: 2px !important; width: 100% !important; table-layout: fixed; }
-          th, td { font-size: 8px !important; padding: 1px !important; }
-          input { border: none !important; font-size: 9px !important; }
+          table { width: 100% !important; table-layout: fixed; border: 2px solid black !important; }
+          th, td { font-size: 8px !important; padding: 2px !important; border: 1px solid black !important; }
+          input { font-size: 9px !important; border: none !important; }
         }
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2 hover:bg-black hover:text-white transition-all">← Voltar</button>
+        <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2">← Voltar</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] active:shadow-none">Novo Aluno +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000]">Novo Aluno +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc] active:shadow-none">Imprimir</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc]">Imprimir</button>
         </div>
       </nav>
 
@@ -211,7 +204,7 @@ export default function CasaDaCultura2026() {
             <tr className="bg-gray-100">
               <th className="border-2 border-black w-10 p-2 text-[10px]">Nº</th>
               <th className="border-2 border-black p-2 text-left min-w-[200px]">Aluno</th>
-              <th className="border-2 border-black p-2 text-left w-36 no-print bg-blue-50/50">Contato</th>
+              <th className="border-2 border-black p-2 text-left w-36 no-print">Contato</th>
               {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-12 text-[8px]">{dt}</th>)}
               <th className="border-2 border-black w-12 text-[8px] no-print bg-yellow-50">Faltas</th>
             </tr>
@@ -220,40 +213,20 @@ export default function CasaDaCultura2026() {
             {alunosLocais.map((aluno, i) => {
               const faltas = Object.values(presencas[i] || {}).filter(v => v === "F").length;
               return (
-                <tr key={i} className="h-10 hover:bg-gray-50 transition-colors">
+                <tr key={i} className="h-10">
                   <td className="border-2 border-black text-center text-[10px] text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input 
-                      className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`}
-                      value={aluno.nome || ""}
-                      onChange={(e) => {
-                        const n = [...alunosLocais];
-                        n[i].nome = e.target.value.toUpperCase();
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(i, aluno.id)}
-                      placeholder="NOME DO ALUNO..."
-                    />
+                    <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`} value={aluno.nome || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
-                  <td className="border-2 border-black px-2 no-print bg-blue-50/20">
-                    <input 
-                      className="w-full bg-transparent outline-none text-[10px] font-bold text-blue-700"
-                      value={aluno.telefone || ""}
-                      onChange={(e) => {
-                        const n = [...alunosLocais];
-                        n[i].telefone = e.target.value;
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(i, aluno.id)}
-                      placeholder="739..."
-                    />
+                  <td className="border-2 border-black px-2 no-print">
+                    <input className="w-full bg-transparent outline-none text-[10px]" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   {datasAulas.map(dt => (
                     <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[i]?.[dt] === 'P' ? 'bg-green-100' : presencas[i]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
                       {presencas[i]?.[dt]}
                     </td>
                   ))}
-                  <td className={`border-2 border-black text-center no-print font-black ${faltas >= 3 ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-400'}`}>
+                  <td className={`border-2 border-black text-center no-print font-black ${faltas >= 3 ? 'bg-red-600 text-white' : 'bg-gray-50'}`}>
                     {faltas || ""}
                   </td>
                 </tr>
@@ -263,8 +236,8 @@ export default function CasaDaCultura2026() {
         </table>
         
         <div className="mt-12 flex justify-between items-end">
-           <p className="text-[9px] text-gray-400 font-bold tracking-widest">LEGENDA: (P) PRESENÇA | (F) FALTA | (J) JUSTIFICADO</p>
-           <div className="w-64 border-t-4 border-black pt-2 text-center text-[10px] font-black">ASSINATURA DO PROFESSOR</div>
+           <p className="text-[9px] text-gray-400 font-bold tracking-widest uppercase">Legenda: (P) Presença | (F) Falta | (J) Justificado</p>
+           <div className="w-64 border-t-4 border-black pt-2 text-center text-[10px] font-black uppercase">Assinatura do Professor</div>
         </div>
       </div>
     </div>
