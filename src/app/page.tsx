@@ -15,6 +15,7 @@ export default function CasaDaCultura2026() {
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
+  // REGRA DE LIMITES DE VAGAS PARA ANÁLISE
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -57,6 +58,7 @@ export default function CasaDaCultura2026() {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return;
 
+    // BUSCA POR POSIÇÃO PARA EVITAR DUPLICATAS
     const { data: existente } = await supabase
       .from('alunos')
       .select('id')
@@ -94,6 +96,8 @@ export default function CasaDaCultura2026() {
     n.splice(index, 1);
     const reordenados = n.map((al, idx) => ({ ...al, posicao: idx }));
     setAlunosLocais(reordenados);
+    
+    // Sincroniza posições no banco após excluir
     for (let i = 0; i < reordenados.length; i++) {
         if (reordenados[i].id) {
             await supabase.from('alunos').update({ posicao: i }).eq('id', reordenados[i].id);
@@ -127,7 +131,7 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic">ESTABILIZANDO SISTEMA...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic">ESTABILIZANDO DADOS...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
@@ -147,24 +151,25 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
+    
     const renderCard = (c: any) => {
       const n = contagemAlunos[c.id] || 0;
       const limit = obterLimiteOficina(c.oficina);
-      const quaseLotado = n >= limit - 2 && n < limit;
-      const lotado = n >= limit;
+      const noLimite = n === limit;
+      const extrapolou = n > limit;
 
       return (
         <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} 
           className={`relative bg-white border-4 p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center 
-          ${lotado ? 'border-red-600 bg-red-50 shadow-[6px_6px_0px_#dc2626]' : 
-            quaseLotado ? 'border-yellow-500 bg-yellow-50 shadow-[6px_6px_0px_#eab308]' : 
+          ${extrapolou ? 'border-red-600 bg-red-50 shadow-[6px_6px_0px_#dc2626]' : 
+            noLimite ? 'border-yellow-500 bg-yellow-50 shadow-[6px_6px_0px_#eab308]' : 
             'border-black shadow-[6px_6px_0px_#000]'}`}>
           <div className="flex flex-col">
             <span className="text-2xl italic leading-none">{c.horario}</span>
             <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
           </div>
           <div className="text-right">
-            <span className={`text-lg font-bold ${lotado ? 'text-red-600' : quaseLotado ? 'text-yellow-600' : 'text-black'}`}>
+            <span className={`text-lg font-bold ${extrapolou ? 'text-red-600' : noLimite ? 'text-yellow-600' : 'text-black'}`}>
                 {n} / {limit}
             </span>
             <p className="text-[8px] text-gray-400 uppercase font-bold">Vagas</p>
@@ -208,14 +213,14 @@ export default function CasaDaCultura2026() {
         .legenda-print { display: none; }
       `}</style>
 
-      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8">
+      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2 font-bold">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black font-bold shadow-[4px_4px_0px_#000]">ADICIONAR ALUNO +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black font-bold shadow-[4px_4px_0px_#000]">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-bold">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-bold">IMPRIMIR</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-bold shadow-[4px_4px_0px_#ccc]">IMPRIMIR CHAMADA</button>
         </div>
       </nav>
 
@@ -231,7 +236,7 @@ export default function CasaDaCultura2026() {
           </div>
           <div className="text-right">
              <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
-             <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase italic font-bold">CASA DA CULTURA</span>
+             <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase italic">Sistema Casa da Cultura</span>
           </div>
         </header>
 
@@ -253,10 +258,10 @@ export default function CasaDaCultura2026() {
                 <tr key={i}>
                   <td className="border-2 border-black text-center text-[10px] font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`} value={aluno.nome || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="..." />
+                    <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`} value={aluno.nome || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="DIGITE O NOME..." />
                   </td>
                   <td className="border-2 border-black px-2 no-print">
-                    <input className="w-full bg-transparent outline-none text-[10px]" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="..." />
+                    <input className="w-full bg-transparent outline-none text-[10px]" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="TELEFONE..." />
                   </td>
                   {datasAulas.map(dt => (
                     <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black select-none ${presencas[i]?.[dt] === 'P' ? 'bg-green-50' : presencas[i]?.[dt] === 'F' ? 'bg-red-50' : presencas[i]?.[dt] === 'J' ? 'bg-blue-50' : ''}`}>
