@@ -168,14 +168,17 @@ export default function CasaDaCultura2026() {
 
   const cursoAtivo = turmas.find(c => c.id === idAtivo);
   const getDatas = () => {
-    const dias = String(cursoAtivo?.dias).replace(/[^0-9,]/g, '').split(',').map(Number);
+    const diasPermitidos = String(cursoAtivo?.dias).replace(/[^0-9,]/g, '').split(',').map(Number);
     const res = [];
-    const ultimo = new Date(2026, mes + 1, 0).getDate();
-    for (let d = 1; d <= ultimo; d++) {
+    const ultimoDiaMes = new Date(2026, mes + 1, 0).getDate();
+    
+    for (let d = 1; d <= ultimoDiaMes; d++) {
       const date = new Date(2026, mes, d);
-      if (dias.includes(date.getDay())) res.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
+      if (diasPermitidos.includes(date.getDay())) {
+        res.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
+      }
     }
-    return res.slice(0, 10);
+    return res; // AGORA TRAZ TODAS AS DATAS DO MÊS
   };
   const datasAulas = getDatas();
 
@@ -192,7 +195,11 @@ export default function CasaDaCultura2026() {
             border: none !important; box-shadow: none !important; background: #fff !important;
           }
           table { width: 100% !important; table-layout: fixed; border: 2px solid black !important; }
-          th, td { border: 1px solid black !important; padding: 2px !important; font-size: 10px !important; }
+          th, td { 
+            border: 1px solid black !important; 
+            padding: 2px !important; 
+            font-size: 8px !important; /* Fonte menor para caber mais colunas */
+          }
           .bg-green-100 { background-color: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
           .bg-red-100 { background-color: #fef2f2 !important; -webkit-print-color-adjust: exact; }
         }
@@ -205,7 +212,7 @@ export default function CasaDaCultura2026() {
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc]">Imprimir</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black">Imprimir</button>
         </div>
       </nav>
 
@@ -224,32 +231,32 @@ export default function CasaDaCultura2026() {
         <table className="w-full border-collapse border-[3px] border-black">
           <thead>
             <tr className="bg-gray-100 uppercase">
-              <th className="border-2 border-black w-8 p-1 text-[9px]">Nº</th>
-              <th className="border-2 border-black p-1 text-left text-[11px]">Aluno</th>
-              <th className="border-2 border-black p-1 text-left w-36 no-print">Contato</th>
-              {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-12 text-[8px]">{dt}</th>)}
-              <th className="border-2 border-black w-12 text-[8px] no-print">Faltas</th>
-              <th className="border-2 border-black w-10 no-print bg-red-50 text-red-600 text-[8px]">DEL</th>
+              <th className="border-2 border-black w-7 p-1 text-[8px]">Nº</th>
+              <th className="border-2 border-black p-1 text-left text-[10px]">Aluno</th>
+              <th className="border-2 border-black p-1 text-left w-32 no-print">Contato</th>
+              {datasAulas.map(dt => <th key={dt} className="border-2 border-black text-[7px]">{dt}</th>)}
+              <th className="border-2 border-black w-10 text-[7px] no-print">Faltas</th>
+              <th className="border-2 border-black w-8 no-print bg-red-50 text-red-600 text-[8px]">DEL</th>
             </tr>
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
               const faltas = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
-                <tr key={aluno.id || i} className="h-9">
+                <tr key={aluno.id || i} className="h-8">
                   <td className="border-2 border-black text-center text-[9px] text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-[11px] ${faltas >= 3 ? 'text-red-600' : ''}`} value={aluno.nome || ""} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
+                    <input className={`w-full bg-transparent outline-none font-black text-[10px] ${faltas >= 3 ? 'text-red-600' : ''}`} value={aluno.nome || ""} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   <td className="border-2 border-black px-2 no-print bg-blue-50/20">
-                    <input className="w-full bg-transparent text-[9px]" value={aluno.telefone || ""} onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
+                    <input className="w-full bg-transparent text-[8px]" value={aluno.telefone || ""} onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   {datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(aluno, dt, i)} className={`border-2 border-black text-center cursor-pointer text-lg font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                    <td key={dt} onClick={() => alternarPresenca(aluno, dt, i)} className={`border-2 border-black text-center cursor-pointer text-base font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
                       {presencas[aluno.id]?.[dt]}
                     </td>
                   ))}
-                  <td className="border-2 border-black text-center no-print font-black text-xs">{faltas || ""}</td>
+                  <td className="border-2 border-black text-center no-print font-black text-[10px]">{faltas || ""}</td>
                   <td className="border-2 border-black text-center no-print bg-gray-50">
                     <button onClick={() => excluirAluno(aluno.id, i)} className="w-full h-full text-red-400 hover:bg-red-600 hover:text-white transition-colors">×</button>
                   </td>
