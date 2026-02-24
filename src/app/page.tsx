@@ -47,9 +47,8 @@ export default function CasaDaCultura2026() {
     if (alData) setAlunosLocais(alData);
     const gridPre: any = {};
     preData?.forEach(p => {
-      const key = p.aluno_id || p.aluno_posicao; 
-      if(!gridPre[key]) gridPre[key] = {};
-      gridPre[key][p.data_aula] = p.status;
+      if(!gridPre[p.aluno_posicao]) gridPre[p.aluno_posicao] = {};
+      gridPre[p.aluno_posicao][p.data_aula] = p.status;
     });
     setPresencas(gridPre);
   }
@@ -64,6 +63,7 @@ export default function CasaDaCultura2026() {
         telefone: aluno.telefone || "",
         posicao: index 
       }).select();
+      
       if (data && !idReal) {
         const n = [...alunosLocais];
         n[index].id = data[0].id;
@@ -73,48 +73,48 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  const excluirAluno = async (id: any, index: number) => {
-    if (!id) {
-      const n = [...alunosLocais];
-      n.splice(index, 1);
-      setAlunosLocais(n);
-      return;
+  const getDatasDoMes = (diasSemanaInput: any) => {
+    const datas = [];
+    const diasLimpos = String(diasSemanaInput).replace(/[^0-9,]/g, '');
+    const diasSemana = diasLimpos.split(',').map(Number);
+    const ultimoDia = new Date(2026, mes + 1, 0).getDate();
+    for (let d = 1; d <= ultimoDia; d++) {
+      const dataProd = new Date(2026, mes, d);
+      if (diasSemana.includes(dataProd.getDay())) {
+        datas.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
+      }
     }
-    if (confirm("EXCLUIR ALUNO DEFINITIVAMENTE?")) {
-      await supabase.from('frequencia').delete().eq('aluno_id', id);
-      await supabase.from('alunos').delete().eq('id', id);
-      const n = [...alunosLocais];
-      n.splice(index, 1);
-      setAlunosLocais(n);
-      fetchTurmas();
-    }
+    return datas; // REMOVIDO O SLICE(0, 10) PARA MOSTRAR TODAS AS DATAS
   };
 
-  const alternarPresenca = async (aluno: any, dataAula: string, index: number) => {
-    if (!aluno.id) return;
-    const atual = presencas[aluno.id]?.[dataAula] || "";
+  const alternarPresenca = async (alunoPos: number, dataAula: string) => {
+    const atual = presencas[alunoPos]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
-    setPresencas((prev: any) => ({ ...prev, [aluno.id]: { ...(prev[aluno.id] || {}), [dataAula]: novoStatus } }));
+    setPresencas((prev: any) => ({ ...prev, [alunoPos]: { ...(prev[alunoPos] || {}), [dataAula]: novoStatus } }));
+    
     if (novoStatus === "") {
-      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_id: aluno.id, data_aula: dataAula });
+      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_posicao: alunoPos, data_aula: dataAula });
     } else {
-      await supabase.from('frequencia').upsert({ turma_id: idAtivo, mes, aluno_id: aluno.id, aluno_posicao: index, data_aula: dataAula, status: novoStatus });
+      await supabase.from('frequencia').upsert({ turma_id: idAtivo, mes, aluno_posicao: alunoPos, data_aula: dataAula, status: novoStatus });
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic uppercase tracking-tighter">Carregando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse uppercase italic">Carregando...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic">Casa da Cultura <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
-            <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
-              {p}
-              <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0)} ALUNOS</span>
-            </button>
-          ))}
+          {[...new Set(turmas.map(t => t.professor))].sort().map(p => {
+            const totalProf = turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+            return (
+              <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all active:shadow-none active:translate-x-[2px]">
+                {p}
+                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalProf} ALUNOS</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -122,44 +122,40 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
+    const segQua = turmasDoProf.filter(t => String(t.dias).includes('1'));
+    const terQui = turmasDoProf.filter(t => String(t.dias).includes('2'));
+    
     const renderCard = (c: any) => {
       const n = contagemAlunos[c.id] || 0;
       const limit = obterLimiteOficina(c.oficina);
-      const estaLotada = n === limit;
-      const estaExcedida = n > limit;
-
+      const lotado = n >= limit;
       return (
-        <div 
-          key={c.id} 
-          onClick={() => {setIdAtivo(c.id); setTela('chamada');}} 
-          className={`border-4 border-black p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center shadow-[6px_6px_0px_#000] 
-            ${estaExcedida ? 'bg-red-500 text-white' : estaLotada ? 'bg-yellow-400 text-black' : 'bg-white text-black'}`}
-        >
-          <div className="flex flex-col text-left">
+        <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`relative bg-white border-4 p-4 cursor-pointer hover:scale-[1.02] transition-all flex justify-between items-center ${lotado ? 'border-yellow-500 bg-yellow-50 shadow-[6px_6px_0px_#eab308]' : 'border-black shadow-[6px_6px_0px_#000]'}`}>
+          {lotado && <span className="absolute -top-3 -right-3 bg-yellow-400 border-2 border-black px-2 py-0.5 text-[10px]">LOTADO</span>}
+          <div className="flex flex-col">
             <span className="text-2xl italic tracking-tighter leading-none">{c.horario}</span>
-            <span className={`text-[10px] mt-1 font-bold ${estaExcedida ? 'text-white' : 'text-gray-500'}`}>{c.oficina}</span>
+            <span className="text-[10px] text-gray-400 mt-1">{c.oficina}</span>
           </div>
-          <div className="text-right flex flex-col items-end">
-            <span className="text-lg font-black">{n} / {limit}</span>
-            {estaLotada && !estaExcedida && <span className="text-[8px] font-black italic">LOTADA</span>}
-            {estaExcedida && <span className="text-[8px] font-black italic">EXCEDIDA</span>}
+          <div className="text-right">
+            <span className="text-lg">{n} / {limit}</span>
+            <p className="text-[8px] text-gray-400">Vagas</p>
           </div>
         </div>
       );
-    };
+    }
 
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1">← Voltar</button>
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 hover:bg-black hover:text-white transition-all">← Voltar</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter">{profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
             <h3 className="bg-blue-600 text-white p-3 mb-6 text-center border-4 border-black shadow-[6px_6px_0px_#000]">Segunda e Quarta</h3>
-            <div className="space-y-4">{turmasDoProf.filter(t => String(t.dias).includes('1')).map(renderCard)}</div>
+            <div className="space-y-4">{segQua.map(renderCard)}</div>
           </div>
           <div>
             <h3 className="bg-red-600 text-white p-3 mb-6 text-center border-4 border-black shadow-[6px_6px_0px_#000]">Terça e Quinta</h3>
-            <div className="space-y-4">{turmasDoProf.filter(t => String(t.dias).includes('2')).map(renderCard)}</div>
+            <div className="space-y-4">{terQui.map(renderCard)}</div>
           </div>
         </div>
       </div>
@@ -167,98 +163,98 @@ export default function CasaDaCultura2026() {
   }
 
   const cursoAtivo = turmas.find(c => c.id === idAtivo);
-  const getDatas = () => {
-    const diasPermitidos = String(cursoAtivo?.dias).replace(/[^0-9,]/g, '').split(',').map(Number);
-    const res = [];
-    const ultimoDiaMes = new Date(2026, mes + 1, 0).getDate();
-    
-    for (let d = 1; d <= ultimoDiaMes; d++) {
-      const date = new Date(2026, mes, d);
-      if (diasPermitidos.includes(date.getDay())) {
-        res.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
-      }
-    }
-    return res; // AGORA TRAZ TODAS AS DATAS DO MÊS
-  };
-  const datasAulas = getDatas();
+  const datasAulas = cursoAtivo ? getDatasDoMes(cursoAtivo.dias) : [];
+  
+  const diasTxt = String(cursoAtivo?.dias).includes('1') ? "SEGUNDA E QUARTA" : "TERÇA E QUINTA";
 
   return (
-    <div className="min-h-screen italic font-black uppercase bg-[#F1F5F9]">
+    <div className="min-h-screen italic font-black uppercase bg-white">
       <style>{`
         @media print { 
-          @page { size: A4 landscape; margin: 5mm; }
-          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
-          nav, .no-print, button { display: none !important; }
-          .folha-container { 
-            position: absolute; top: 0; left: 0; width: 100% !important; 
-            max-width: none !important; margin: 0 !important; padding: 5mm !important;
-            border: none !important; box-shadow: none !important; background: #fff !important;
-          }
-          table { width: 100% !important; table-layout: fixed; border: 2px solid black !important; }
-          th, td { 
-            border: 1px solid black !important; 
-            padding: 2px !important; 
-            font-size: 8px !important; /* Fonte menor para caber mais colunas */
-          }
-          .bg-green-100 { background-color: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
-          .bg-red-100 { background-color: #fef2f2 !important; -webkit-print-color-adjust: exact; }
+          .no-print { display: none !important; } 
+          .folha-container { border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }
+          table { border-width: 2px !important; width: 100% !important; table-layout: fixed; }
+          th, td { font-size: 8px !important; padding: 1px !important; }
+          input { border: none !important; font-size: 9px !important; }
         }
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2">← Voltar</button>
+        <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2 hover:bg-black hover:text-white transition-all">← Voltar</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black">Novo Aluno +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] active:shadow-none">Novo Aluno +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black">Imprimir</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc] active:shadow-none">Imprimir</button>
         </div>
       </nav>
 
-      <div className="folha-container max-w-[1300px] mx-auto bg-white p-10 mt-6 border-4 border-black shadow-2xl mb-10">
-        <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4">
+      <div className="folha-container max-w-[1300px] mx-auto bg-white p-10 mt-6 border-4 border-black shadow-2xl">
+        <header className="flex justify-between items-end mb-8 border-b-8 border-black pb-4">
           <div>
-            <h1 className="text-5xl tracking-tighter leading-none mb-1">{cursoAtivo?.professor}</h1>
-            <span className="text-sm font-bold">{cursoAtivo?.oficina} | {cursoAtivo?.horario}</span>
+            <h1 className="text-6xl tracking-tighter leading-none mb-2">{cursoAtivo?.professor}</h1>
+            <div className="flex gap-3 items-center">
+              <span className="text-lg">{cursoAtivo?.oficina}</span>
+              <span className="bg-black text-white px-3 py-1 text-xs">{cursoAtivo?.horario}</span>
+              <span className="border-2 border-black px-2 py-1 text-[10px]">{diasTxt}</span>
+            </div>
           </div>
           <div className="text-right">
-             <span className="text-4xl block leading-none">{mesesNomes[mes]}</span>
-             <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Casa da Cultura 2026</span>
+             <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
+             <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase">Casa da Cultura 2026</span>
           </div>
         </header>
 
-        <table className="w-full border-collapse border-[3px] border-black">
+        <table className="w-full border-collapse border-4 border-black">
           <thead>
-            <tr className="bg-gray-100 uppercase">
-              <th className="border-2 border-black w-7 p-1 text-[8px]">Nº</th>
-              <th className="border-2 border-black p-1 text-left text-[10px]">Aluno</th>
-              <th className="border-2 border-black p-1 text-left w-32 no-print">Contato</th>
-              {datasAulas.map(dt => <th key={dt} className="border-2 border-black text-[7px]">{dt}</th>)}
-              <th className="border-2 border-black w-10 text-[7px] no-print">Faltas</th>
-              <th className="border-2 border-black w-8 no-print bg-red-50 text-red-600 text-[8px]">DEL</th>
+            <tr className="bg-gray-100">
+              <th className="border-2 border-black w-10 p-2 text-[10px]">Nº</th>
+              <th className="border-2 border-black p-2 text-left min-w-[200px]">Aluno</th>
+              <th className="border-2 border-black p-2 text-left w-36 no-print bg-blue-50/50">Contato</th>
+              {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-12 text-[8px]">{dt}</th>)}
+              <th className="border-2 border-black w-12 text-[8px] no-print bg-yellow-50">Faltas</th>
             </tr>
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
-              const faltas = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
+              const faltas = Object.values(presencas[i] || {}).filter(v => v === "F").length;
               return (
-                <tr key={aluno.id || i} className="h-8">
-                  <td className="border-2 border-black text-center text-[9px] text-gray-400 font-bold">{i+1}</td>
+                <tr key={i} className="h-10 hover:bg-gray-50 transition-colors">
+                  <td className="border-2 border-black text-center text-[10px] text-gray-400 font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-[10px] ${faltas >= 3 ? 'text-red-600' : ''}`} value={aluno.nome || ""} onChange={e=>{const n=[...alunosLocais]; n[i].nome=e.target.value.toUpperCase(); setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
+                    <input 
+                      className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`}
+                      value={aluno.nome || ""}
+                      onChange={(e) => {
+                        const n = [...alunosLocais];
+                        n[i].nome = e.target.value.toUpperCase();
+                        setAlunosLocais(n);
+                      }}
+                      onBlur={() => salvarAlunoNoBanco(i, aluno.id)}
+                      placeholder="NOME DO ALUNO..."
+                    />
                   </td>
                   <td className="border-2 border-black px-2 no-print bg-blue-50/20">
-                    <input className="w-full bg-transparent text-[8px]" value={aluno.telefone || ""} onChange={e=>{const n=[...alunosLocais]; n[i].telefone=e.target.value; setAlunosLocais(n);}} onBlur={()=>salvarAlunoNoBanco(i, aluno.id)} />
+                    <input 
+                      className="w-full bg-transparent outline-none text-[10px] font-bold text-blue-700"
+                      value={aluno.telefone || ""}
+                      onChange={(e) => {
+                        const n = [...alunosLocais];
+                        n[i].telefone = e.target.value;
+                        setAlunosLocais(n);
+                      }}
+                      onBlur={() => salvarAlunoNoBanco(i, aluno.id)}
+                      placeholder="739..."
+                    />
                   </td>
                   {datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(aluno, dt, i)} className={`border-2 border-black text-center cursor-pointer text-base font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
-                      {presencas[aluno.id]?.[dt]}
+                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[i]?.[dt] === 'P' ? 'bg-green-100' : presencas[i]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                      {presencas[i]?.[dt]}
                     </td>
                   ))}
-                  <td className="border-2 border-black text-center no-print font-black text-[10px]">{faltas || ""}</td>
-                  <td className="border-2 border-black text-center no-print bg-gray-50">
-                    <button onClick={() => excluirAluno(aluno.id, i)} className="w-full h-full text-red-400 hover:bg-red-600 hover:text-white transition-colors">×</button>
+                  <td className={`border-2 border-black text-center no-print font-black ${faltas >= 3 ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-400'}`}>
+                    {faltas || ""}
                   </td>
                 </tr>
               )
@@ -266,16 +262,10 @@ export default function CasaDaCultura2026() {
           </tbody>
         </table>
         
-        <footer className="mt-8 flex justify-between items-end">
-           <div className="flex flex-col gap-1 text-left">
-             <p className="text-[8px] text-gray-500 font-bold tracking-widest">LEGENDA: (P) PRESENÇA | (F) FALTA | (J) JUSTIFICADO</p>
-             <p className="text-[7px] text-gray-300 italic">Gerado automaticamente - Sistema Casa da Cultura 2026</p>
-           </div>
-           <div className="flex flex-col items-center">
-             <div className="w-64 border-t-2 border-black pt-1"></div>
-             <p className="text-[9px] font-black uppercase">Assinatura do Professor</p>
-           </div>
-        </footer>
+        <div className="mt-12 flex justify-between items-end">
+           <p className="text-[9px] text-gray-400 font-bold tracking-widest">LEGENDA: (P) PRESENÇA | (F) FALTA | (J) JUSTIFICADO</p>
+           <div className="w-64 border-t-4 border-black pt-2 text-center text-[10px] font-black">ASSINATURA DO PROFESSOR</div>
+        </div>
       </div>
     </div>
   )
