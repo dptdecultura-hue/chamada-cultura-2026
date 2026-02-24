@@ -80,7 +80,6 @@ export default function CasaDaCultura2026() {
     }
     const n = [...alunosLocais];
     n.splice(index, 1);
-    // Reordenar posições após exclusão
     const reordenados = n.map((al, idx) => ({ ...al, posicao: idx }));
     setAlunosLocais(reordenados);
     fetchTurmas();
@@ -105,7 +104,7 @@ export default function CasaDaCultura2026() {
 
   const alternarPresenca = async (alunoPos: number, dataAula: string) => {
     const atual = presencas[alunoPos]?.[dataAula] || "";
-    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : "";
+    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
     setPresencas((prev: any) => ({ ...prev, [alunoPos]: { ...(prev[alunoPos] || {}), [dataAula]: novoStatus } }));
     if (novoStatus === "") {
       await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_posicao: alunoPos, data_aula: dataAula });
@@ -177,22 +176,25 @@ export default function CasaDaCultura2026() {
     <div className="min-h-screen italic font-black uppercase bg-white">
       <style>{`
         @media print { 
+          @page { size: landscape; margin: 1cm; }
           .no-print { display: none !important; } 
-          .folha-container { border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }
+          .folha-container { border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; box-shadow: none !important; }
           table { width: 100% !important; table-layout: fixed; border: 2px solid black !important; }
-          th, td { font-size: 8px !important; padding: 2px !important; border: 1px solid black !important; }
-          input { font-size: 9px !important; border: none !important; }
+          th, td { font-size: 9px !important; padding: 3px !important; border: 1px solid black !important; height: 25px !important; }
+          input { font-size: 10px !important; border: none !important; }
+          .legenda-print { display: flex !important; justify-content: space-between; align-items: flex-end; margin-top: 20px; }
         }
+        .legenda-print { display: none; }
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2">← Voltar</button>
+        <button onClick={()=>setTela('lista')} className="text-xs border-4 border-black px-4 py-2 hover:bg-black hover:text-white transition-all">← Voltar</button>
         <div className="flex gap-4">
           <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000]">Novo Aluno +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black">Imprimir</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#ccc]">Imprimir Folha</button>
         </div>
       </nav>
 
@@ -216,11 +218,11 @@ export default function CasaDaCultura2026() {
           <thead>
             <tr className="bg-gray-100">
               <th className="border-2 border-black w-10 p-2 text-[10px]">Nº</th>
-              <th className="border-2 border-black p-2 text-left min-w-[200px]">Aluno</th>
+              <th className="border-2 border-black p-2 text-left min-w-[250px]">Nome do Aluno</th>
               <th className="border-2 border-black p-2 text-left w-36 no-print">Contato</th>
-              {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-12 text-[8px]">{dt}</th>)}
-              <th className="border-2 border-black w-12 text-[8px] no-print bg-yellow-50">Faltas</th>
-              <th className="border-2 border-black w-8 no-print bg-red-50"></th>
+              {datasAulas.map(dt => <th key={dt} className="border-2 border-black w-14 text-[9px]">{dt}</th>)}
+              <th className="border-2 border-black w-12 text-[9px] no-print bg-yellow-50">Faltas</th>
+              <th className="border-2 border-black w-8 no-print"></th>
             </tr>
           </thead>
           <tbody>
@@ -228,7 +230,7 @@ export default function CasaDaCultura2026() {
               const faltas = Object.values(presencas[i] || {}).filter(v => v === "F").length;
               return (
                 <tr key={i} className="h-10">
-                  <td className="border-2 border-black text-center text-[10px] text-gray-400 font-bold">{i+1}</td>
+                  <td className="border-2 border-black text-center text-[10px] font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
                     <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`} value={aluno.nome || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
@@ -236,7 +238,7 @@ export default function CasaDaCultura2026() {
                     <input className="w-full bg-transparent outline-none text-[10px]" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i, aluno.id)} />
                   </td>
                   {datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[i]?.[dt] === 'P' ? 'bg-green-100' : presencas[i]?.[dt] === 'F' ? 'bg-red-100' : ''}`}>
+                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[i]?.[dt] === 'P' ? 'bg-green-50' : presencas[i]?.[dt] === 'F' ? 'bg-red-50' : presencas[i]?.[dt] === 'J' ? 'bg-blue-50' : ''}`}>
                       {presencas[i]?.[dt]}
                     </td>
                   ))}
@@ -244,13 +246,24 @@ export default function CasaDaCultura2026() {
                     {faltas || ""}
                   </td>
                   <td className="border-2 border-black text-center no-print">
-                    <button onClick={() => excluirAluno(i, aluno.id)} className="text-red-500 hover:text-red-700 font-black text-xs">X</button>
+                    <button onClick={() => excluirAluno(i, aluno.id)} className="text-gray-300 hover:text-red-600 font-black text-[10px] transition-colors">X</button>
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
+
+        {/* Legenda e Assinatura que só aparecem no print ou no final da folha */}
+        <div className="legenda-print mt-10 flex justify-between items-end border-t-2 border-gray-100 pt-6">
+          <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+            Legenda: (P) Presença | (F) Falta | (J) Justificado
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="w-64 border-b-2 border-black mb-2"></div>
+            <span className="text-[10px] font-black uppercase italic">Assinatura do Professor</span>
+          </div>
+        </div>
       </div>
     </div>
   )
