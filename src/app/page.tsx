@@ -15,7 +15,6 @@ export default function CasaDaCultura2026() {
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
-  // REGRA DE LIMITES DE VAGAS PARA ANÁLISE
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -45,11 +44,15 @@ export default function CasaDaCultura2026() {
   async function fetchDados() {
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
     const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
+    
     if (alData) setAlunosLocais(alData);
+
     const gridPre: any = {};
     preData?.forEach(p => {
-      if(!gridPre[p.aluno_posicao]) gridPre[p.aluno_posicao] = {};
-      gridPre[p.aluno_posicao][p.data_aula] = p.status;
+      // VÍNCULO POR ID: Prioriza o aluno_id para a presença não sumir ao reordenar
+      const chave = p.aluno_id || p.aluno_posicao; 
+      if(!gridPre[chave]) gridPre[chave] = {};
+      gridPre[chave][p.data_aula] = p.status;
     });
     setPresencas(gridPre);
   }
@@ -58,7 +61,6 @@ export default function CasaDaCultura2026() {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return;
 
-    // BUSCA POR POSIÇÃO PARA EVITAR DUPLICATAS
     const { data: existente } = await supabase
       .from('alunos')
       .select('id')
@@ -89,7 +91,8 @@ export default function CasaDaCultura2026() {
   const excluirAluno = async (index: number, idReal: any) => {
     if (!confirm("CONFIRMA EXCLUSÃO DEFINITIVA?")) return;
     if (idReal) {
-      await supabase.from('frequencia').delete().eq('aluno_posicao', index).eq('turma_id', idAtivo);
+      // Remove presenças vinculadas ao ID antes de deletar o aluno
+      await supabase.from('frequencia').delete().eq('aluno_id', idReal);
       await supabase.from('alunos').delete().eq('id', idReal);
     }
     const n = [...alunosLocais];
@@ -97,7 +100,7 @@ export default function CasaDaCultura2026() {
     const reordenados = n.map((al, idx) => ({ ...al, posicao: idx }));
     setAlunosLocais(reordenados);
     
-    // Sincroniza posições no banco após excluir
+    // Atualiza posições no banco
     for (let i = 0; i < reordenados.length; i++) {
         if (reordenados[i].id) {
             await supabase.from('alunos').update({ posicao: i }).eq('id', reordenados[i].id);
@@ -120,18 +123,41 @@ export default function CasaDaCultura2026() {
     return datas;
   };
 
-  const alternarPresenca = async (alunoPos: number, dataAula: string) => {
-    const atual = presencas[alunoPos]?.[dataAula] || "";
+  const alternarPresenca = async (index: number, dataAula: string) => {
+    const aluno = alunosLocais[index];
+    if (!aluno?.id) {
+      alert("ERRO: O aluno precisa ter um ID. Tente clicar fora do nome antes de marcar presença.");
+      return;
+    }
+
+    const atual = presencas[aluno.id]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
-    setPresencas((prev: any) => ({ ...prev, [alunoPos]: { ...(prev[alunoPos] || {}), [dataAula]: novoStatus } }));
+    
+    setPresencas((prev: any) => ({
+      ...prev,
+      [aluno.id]: { ...(prev[aluno.id] || {}), [dataAula]: novoStatus }
+    }));
+    
     if (novoStatus === "") {
-      await supabase.from('frequencia').delete().match({ turma_id: idAtivo, mes, aluno_posicao: alunoPos, data_aula: dataAula });
+      await supabase.from('frequencia').delete().match({ 
+        turma_id: idAtivo, 
+        mes, 
+        aluno_id: aluno.id, 
+        data_aula: dataAula 
+      });
     } else {
-      await supabase.from('frequencia').upsert({ turma_id: idAtivo, mes, aluno_posicao: alunoPos, data_aula: dataAula, status: novoStatus });
+      await supabase.from('frequencia').upsert({ 
+        turma_id: idAtivo, 
+        mes, 
+        aluno_id: aluno.id,
+        aluno_posicao: index,
+        data_aula: dataAula, 
+        status: novoStatus 
+      });
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic">ESTABILIZANDO DADOS...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse italic">ESTABILIZANDO SISTEMA...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase">
@@ -151,7 +177,6 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
-    
     const renderCard = (c: any) => {
       const n = contagemAlunos[c.id] || 0;
       const limit = obterLimiteOficina(c.oficina);
@@ -220,7 +245,7 @@ export default function CasaDaCultura2026() {
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-bold">
             {mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}
           </select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-bold shadow-[4px_4px_0px_#ccc]">IMPRIMIR CHAMADA</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-bold">IMPRIMIR</button>
         </div>
       </nav>
 
@@ -236,7 +261,7 @@ export default function CasaDaCultura2026() {
           </div>
           <div className="text-right">
              <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
-             <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase italic">Sistema Casa da Cultura</span>
+             <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase italic font-bold">CASA DA CULTURA</span>
           </div>
         </header>
 
@@ -253,19 +278,19 @@ export default function CasaDaCultura2026() {
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
-              const faltas = Object.values(presencas[i] || {}).filter(v => v === "F").length;
+              const faltas = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
-                <tr key={i}>
+                <tr key={aluno.id || i}>
                   <td className="border-2 border-black text-center text-[10px] font-bold">{i+1}</td>
                   <td className="border-2 border-black px-2">
                     <input className={`w-full bg-transparent outline-none font-black text-sm ${faltas >= 3 ? 'text-red-600' : 'text-black'}`} value={aluno.nome || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="DIGITE O NOME..." />
                   </td>
                   <td className="border-2 border-black px-2 no-print">
-                    <input className="w-full bg-transparent outline-none text-[10px]" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="TELEFONE..." />
+                    <input className="w-full bg-transparent outline-none text-[10px]" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} placeholder="CONTATO..." />
                   </td>
                   {datasAulas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black select-none ${presencas[i]?.[dt] === 'P' ? 'bg-green-50' : presencas[i]?.[dt] === 'F' ? 'bg-red-50' : presencas[i]?.[dt] === 'J' ? 'bg-blue-50' : ''}`}>
-                      {presencas[i]?.[dt]}
+                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black select-none ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-50' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-50' : presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-50' : ''}`}>
+                      {presencas[aluno.id]?.[dt]}
                     </td>
                   ))}
                   <td className="border-2 border-black text-center no-print font-bold">{faltas || 0}</td>
