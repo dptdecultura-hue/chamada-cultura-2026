@@ -79,17 +79,26 @@ export default function CasaDaCultura2026() {
     let aId = alunosLocais[index].id;
     if (!aId) aId = await salvarAlunoNoBanco(index);
     if (!aId) return;
+
     const atual = presencas[aId]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
+    
     setPresencas((p: any) => ({ ...p, [aId]: { ...(p[aId] || {}), [dataAula]: novoStatus } }));
+
     if (novoStatus === "") {
-      await supabase.from('frequencia').delete().match({ aluno_id: aId, data_aula: dataAula, mes: mes });
+        await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mes);
     } else {
-      await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mes, status: novoStatus });
+        await supabase.from('frequencia').upsert({ 
+          aluno_id: aId, 
+          turma_id: idAtivo, 
+          data_aula: dataAula, 
+          mes: mes, 
+          status: novoStatus 
+        });
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">Sincronizando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">ATUALIZANDO SISTEMA...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
@@ -109,7 +118,7 @@ export default function CasaDaCultura2026() {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50">← VOLTAR</button>
+        <button onClick={() => {setTela('menu'); fetchTurmas();}} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter">{profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
@@ -141,7 +150,7 @@ export default function CasaDaCultura2026() {
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
+        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR ÀS TURMAS</button>
         <div className="flex gap-4">
           <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic underline">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
@@ -154,14 +163,14 @@ export default function CasaDaCultura2026() {
           <div>
             <h1 className="text-6xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
             <div className="flex gap-3 text-lg items-center">
-                <span className="bg-black text-white px-3 py-1 text-sm">{diasTexto}</span>
-                <span className="border-2 border-black px-3 py-0.5 text-sm">{curso?.oficina}</span>
-                <span className="text-sm font-bold underline">{curso?.horario}</span>
+                <span className="bg-black text-white px-3 py-1 text-sm font-black italic">{diasTexto}</span>
+                <span className="border-2 border-black px-3 py-0.5 text-sm font-black italic">{curso?.oficina}</span>
+                <span className="text-sm font-bold underline font-black italic">{curso?.horario}</span>
             </div>
           </div>
-          <div className="text-right uppercase">
+          <div className="text-right uppercase font-black">
             <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
-            <span className="text-[10px] text-gray-400 font-bold tracking-widest">CASA DA CULTURA 2026</span>
+            <span className="text-[10px] text-gray-400 font-bold tracking-widest text-center">CASA DA CULTURA 2026</span>
           </div>
         </header>
 
@@ -192,7 +201,7 @@ export default function CasaDaCultura2026() {
                 <tr key={aluno.id || `temp-${i}`}>
                   <td className="border-2 border-black text-center text-[10px] italic">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-sm uppercase italic ${f >= 3 ? 'text-red-600 underline' : 'text-black'}`} 
+                    <input className={`w-full bg-transparent outline-none font-black text-sm uppercase italic ${f >= 3 ? 'text-red-600 underline font-bold' : 'text-black'}`} 
                            value={aluno.nome || ""} 
                            onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} 
                            onBlur={() => salvarAlunoNoBanco(i)} />
@@ -209,9 +218,9 @@ export default function CasaDaCultura2026() {
                     return datas.map(dt => (
                       <td key={dt} onClick={() => alternarPresenca(i, dt)} 
                           className={`border-2 border-black text-center cursor-pointer text-xl font-black select-none 
-                          ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : 
-                            presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : 
-                            presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-100' : ''}`}>
+                          ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100 text-green-700' : 
+                            presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100 text-red-700' : 
+                            presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-100 text-blue-700' : ''}`}>
                         {presencas[aluno.id]?.[dt]}
                       </td>
                     ));
