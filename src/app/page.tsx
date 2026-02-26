@@ -15,16 +15,27 @@ export default function CasaDaCultura2026() {
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
-  // FRASES MOTIVACIONAIS POR OFICINA
-  const obterFraseMotivacional = (oficina: string) => {
+  const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
-    if (o.includes("PIANO") || o.includes("TECLADO")) return "A harmonia está em suas mãos. Que Março seja uma sinfonia de aprendizado!";
-    if (o.includes("VIOLÃO") || o.includes("VIOLINO") || o.includes("CORDAS")) return "Cada corda vibrada é um passo em direção à maestria. Vamos brilhar em Março!";
-    if (o.includes("CANTO") || o.includes("CORAL")) return "Sua voz é única no mundo. Solte seu talento e encante este mês!";
-    if (o.includes("FLAUTA")) return "A arte de soprar vida no metal. Que sua música flua leve em Março!";
-    if (o.includes("BATERIA") || o.includes("PERCUSSÃO")) return "Mantenha o ritmo do seu coração na batida da música. Março é seu!";
-    if (o.includes("DESENHO") || o.includes("PINTURA")) return "Sua criatividade não tem limites. Pinte um Março inesquecível!";
-    return "A arte transforma o mundo. Bem-vindo ao mês de Março!";
+    const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
+    const final = " um ótimo mês de março — ";
+
+    if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) 
+      return `${base}Percussão${final}que o ritmo continue sendo sua energia diária e que cada aula seja tão vibrante quanto o som dos tambores.`;
+    if (o.includes("VIOLINO")) 
+      return `${base}Violino${final}que a música siga afinando os dias e trazendo inspiração em cada acorde.`;
+    if (o.includes("PIANO") || o.includes("TECLADO")) 
+      return `${base}Piano${final}que as melodias tornem seus dias mais leves e cheios de harmonia.`;
+    if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) 
+      return `${base}Técnica Vocal e Coro${final}que sua voz continue ecoando incentivo, alegria e paixão pela música.`;
+    if (o.includes("FLAUTA")) 
+      return `${base}Flauta${final}que o sopro da música renove suas energias e traga leveza à rotina.`;
+    if (o.includes("VIOLÃO")) 
+      return `${base}Violão${final}que cada acorde continue espalhando inspiração e boas vibrações.`;
+    if (o.includes("MUSICALIZAÇÃO")) 
+      return `${base}Musicalização${final}que a alegria da descoberta musical siga iluminando cada aula.`;
+    
+    return "A unidade da Casa da Cultura do Jardim Europa deseja a todos um ótimo mês de março — que a arte continue transformando vidas.";
   };
 
   const obterLimiteOficina = (oficina: string) => {
@@ -91,22 +102,13 @@ export default function CasaDaCultura2026() {
     let aId = alunosLocais[index].id;
     if (!aId) aId = await salvarAlunoNoBanco(index);
     if (!aId) return;
-
     const atual = presencas[aId]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
-    
     setPresencas((p: any) => ({ ...p, [aId]: { ...(p[aId] || {}), [dataAula]: novoStatus } }));
-
     if (novoStatus === "") {
         await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mes);
     } else {
-        await supabase.from('frequencia').upsert({ 
-          aluno_id: aId, 
-          turma_id: idAtivo, 
-          data_aula: dataAula, 
-          mes: mes, 
-          status: novoStatus 
-        });
+        await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mes, status: novoStatus });
     }
   };
 
@@ -161,19 +163,11 @@ export default function CasaDaCultura2026() {
   
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
-      {/* CSS PARA IMPRESSÃO */}
       <style jsx global>{`
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; }
-          .folha-container { 
-            border: none !important; 
-            box-shadow: none !important; 
-            max-width: 100% !important; 
-            width: 100% !important; 
-            margin: 0 !important; 
-            padding: 20px !important;
-          }
+          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10px !important; }
           table { width: 100% !important; border-width: 2px !important; }
           th, td { border-width: 1px !important; }
         }
@@ -188,7 +182,7 @@ export default function CasaDaCultura2026() {
         </div>
       </nav>
 
-      <div className="folha-container max-w-[1300px] mx-auto p-10 mt-6 border-4 border-black bg-white mb-10 shadow-2xl">
+      <div className="folha-container max-w-[1300px] mx-auto p-10 mt-4 border-4 border-black bg-white mb-10 shadow-2xl">
         <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black">
           <div>
             <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
@@ -265,19 +259,17 @@ export default function CasaDaCultura2026() {
           </tbody>
         </table>
 
-        {/* RODAPÉ DE IMPRESSÃO: ASSINATURA E FRASE */}
-        <footer className="mt-12 flex flex-col gap-10">
+        <footer className="mt-8 flex flex-col gap-8">
           <div className="flex justify-between items-center italic">
-            <p className="text-[11px] font-black max-w-[60%] border-l-4 border-black pl-4">
-              <span className="block text-blue-600 mb-1">MOTIVAÇÃO DO MÊS:</span>
-              "{obterFraseMotivacional(curso?.oficina)}"
+            <p className="text-[10px] font-black max-w-[65%] border-l-4 border-black pl-4 leading-relaxed">
+              {obterSaudacaoOficial(curso?.oficina)}
             </p>
             <div className="text-center">
               <div className="w-64 border-b-2 border-black mb-1"></div>
-              <p className="text-[10px] font-black">ASSINATURA DO PROFESSOR: {curso?.professor}</p>
+              <p className="text-[9px] font-black tracking-tighter">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
             </div>
           </div>
-          <div className="text-center text-[8px] text-gray-400 font-bold tracking-[0.3em]">
+          <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em]">
             FOLHA DE CONTROLE DE FREQUÊNCIA - SECRETARIA DE CULTURA 2026
           </div>
         </footer>
