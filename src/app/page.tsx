@@ -15,6 +15,18 @@ export default function CasaDaCultura2026() {
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
+  // FRASES MOTIVACIONAIS POR OFICINA
+  const obterFraseMotivacional = (oficina: string) => {
+    const o = oficina?.toUpperCase() || "";
+    if (o.includes("PIANO") || o.includes("TECLADO")) return "A harmonia está em suas mãos. Que Março seja uma sinfonia de aprendizado!";
+    if (o.includes("VIOLÃO") || o.includes("VIOLINO") || o.includes("CORDAS")) return "Cada corda vibrada é um passo em direção à maestria. Vamos brilhar em Março!";
+    if (o.includes("CANTO") || o.includes("CORAL")) return "Sua voz é única no mundo. Solte seu talento e encante este mês!";
+    if (o.includes("FLAUTA")) return "A arte de soprar vida no metal. Que sua música flua leve em Março!";
+    if (o.includes("BATERIA") || o.includes("PERCUSSÃO")) return "Mantenha o ritmo do seu coração na batida da música. Março é seu!";
+    if (o.includes("DESENHO") || o.includes("PINTURA")) return "Sua criatividade não tem limites. Pinte um Março inesquecível!";
+    return "A arte transforma o mundo. Bem-vindo ao mês de Março!";
+  };
+
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -98,7 +110,7 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">ATUALIZANDO SISTEMA...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">ATUALIZANDO...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
@@ -118,7 +130,7 @@ export default function CasaDaCultura2026() {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => {setTela('menu'); fetchTurmas();}} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50">← VOLTAR</button>
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter">{profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
@@ -149,36 +161,54 @@ export default function CasaDaCultura2026() {
   
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
+      {/* CSS PARA IMPRESSÃO */}
+      <style jsx global>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; margin: 0 !important; padding: 0 !important; }
+          .folha-container { 
+            border: none !important; 
+            box-shadow: none !important; 
+            max-width: 100% !important; 
+            width: 100% !important; 
+            margin: 0 !important; 
+            padding: 20px !important;
+          }
+          table { width: 100% !important; border-width: 2px !important; }
+          th, td { border-width: 1px !important; }
+        }
+      `}</style>
+
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR ÀS TURMAS</button>
+        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic underline">NOVO ALUNO +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
         </div>
       </nav>
 
-      <div className="folha-container max-w-[1300px] mx-auto p-10 mt-6 border-4 border-black bg-white mb-20 shadow-2xl">
-        <header className="flex justify-between items-end mb-8 border-b-8 border-black pb-4 italic font-black">
+      <div className="folha-container max-w-[1300px] mx-auto p-10 mt-6 border-4 border-black bg-white mb-10 shadow-2xl">
+        <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black">
           <div>
-            <h1 className="text-6xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
-            <div className="flex gap-3 text-lg items-center">
-                <span className="bg-black text-white px-3 py-1 text-sm font-black italic">{diasTexto}</span>
-                <span className="border-2 border-black px-3 py-0.5 text-sm font-black italic">{curso?.oficina}</span>
-                <span className="text-sm font-bold underline font-black italic">{curso?.horario}</span>
+            <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
+            <div className="flex gap-3 text-sm items-center">
+                <span className="bg-black text-white px-3 py-1">{diasTexto}</span>
+                <span className="border-2 border-black px-3 py-0.5">{curso?.oficina}</span>
+                <span className="font-bold underline">{curso?.horario}</span>
             </div>
           </div>
-          <div className="text-right uppercase font-black">
+          <div className="text-right uppercase">
             <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
-            <span className="text-[10px] text-gray-400 font-bold tracking-widest text-center">CASA DA CULTURA 2026</span>
+            <span className="text-[9px] text-gray-500 font-bold tracking-widest">CASA DA CULTURA 2026</span>
           </div>
         </header>
 
         <table className="w-full border-collapse border-4 border-black font-black uppercase">
           <thead>
             <tr className="bg-gray-100 italic">
-              <th className="border-2 border-black w-10 text-[10px]">Nº</th>
-              <th className="border-2 border-black p-2 text-left min-w-[300px]">NOME DO ALUNO</th>
+              <th className="border-2 border-black w-8 text-[10px]">Nº</th>
+              <th className="border-2 border-black p-2 text-left min-w-[280px]">NOME DO ALUNO</th>
               {(() => {
                 const inputStr = String(curso?.dias);
                 let diasAlvo = inputStr.includes('2') ? [2, 4] : [1, 3];
@@ -190,7 +220,7 @@ export default function CasaDaCultura2026() {
                 }
                 return datas.map(dt => <th key={dt} className="border-2 border-black w-14 text-[9px]">{dt}</th>);
               })()}
-              <th className="border-2 border-black w-12 text-[9px] no-print">FALTAS</th>
+              <th className="border-2 border-black w-12 text-[9px]">FALTAS</th>
               <th className="border-2 border-black w-10 no-print"></th>
             </tr>
           </thead>
@@ -201,7 +231,7 @@ export default function CasaDaCultura2026() {
                 <tr key={aluno.id || `temp-${i}`}>
                   <td className="border-2 border-black text-center text-[10px] italic">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-sm uppercase italic ${f >= 3 ? 'text-red-600 underline font-bold' : 'text-black'}`} 
+                    <input className={`w-full bg-transparent outline-none font-black text-xs uppercase italic ${f >= 3 ? 'text-red-600 underline' : 'text-black'}`} 
                            value={aluno.nome || ""} 
                            onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} 
                            onBlur={() => salvarAlunoNoBanco(i)} />
@@ -225,7 +255,7 @@ export default function CasaDaCultura2026() {
                       </td>
                     ));
                   })()}
-                  <td className="border-2 border-black text-center no-print text-lg">{f}</td>
+                  <td className="border-2 border-black text-center text-sm">{f}</td>
                   <td className="border-2 border-black text-center no-print">
                     <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); }}} className="text-gray-200 hover:text-red-600 font-bold text-[10px]">X</button>
                   </td>
@@ -234,6 +264,23 @@ export default function CasaDaCultura2026() {
             })}
           </tbody>
         </table>
+
+        {/* RODAPÉ DE IMPRESSÃO: ASSINATURA E FRASE */}
+        <footer className="mt-12 flex flex-col gap-10">
+          <div className="flex justify-between items-center italic">
+            <p className="text-[11px] font-black max-w-[60%] border-l-4 border-black pl-4">
+              <span className="block text-blue-600 mb-1">MOTIVAÇÃO DO MÊS:</span>
+              "{obterFraseMotivacional(curso?.oficina)}"
+            </p>
+            <div className="text-center">
+              <div className="w-64 border-b-2 border-black mb-1"></div>
+              <p className="text-[10px] font-black">ASSINATURA DO PROFESSOR: {curso?.professor}</p>
+            </div>
+          </div>
+          <div className="text-center text-[8px] text-gray-400 font-bold tracking-[0.3em]">
+            FOLHA DE CONTROLE DE FREQUÊNCIA - SECRETARIA DE CULTURA 2026
+          </div>
+        </footer>
       </div>
     </div>
   );
