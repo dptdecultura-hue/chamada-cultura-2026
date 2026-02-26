@@ -15,7 +15,6 @@ export default function CasaDaCultura2026() {
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
-  // RESTAURADO: Limites de vagas por oficina
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -60,19 +59,17 @@ export default function CasaDaCultura2026() {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return null;
     const payload = { turma_id: idAtivo, nome: aluno.nome.trim().toUpperCase(), telefone: aluno.telefone || "", posicao: index };
-    
     if (aluno.id) {
       await supabase.from('alunos').update(payload).eq('id', aluno.id);
       return aluno.id;
     } else {
       const { data: novo } = await supabase.from('alunos').insert(payload).select();
       if (novo && novo[0]) {
-        const novoId = novo[0].id;
         const n = [...alunosLocais];
-        n[index].id = novoId;
+        n[index].id = novo[0].id;
         setAlunosLocais(n);
         setContagemAlunos((prev:any) => ({...prev, [idAtivo]: (prev[idAtivo] || 0) + 1}));
-        return novoId;
+        return novo[0].id;
       }
     }
     return null;
@@ -82,26 +79,18 @@ export default function CasaDaCultura2026() {
     let aId = alunosLocais[index].id;
     if (!aId) aId = await salvarAlunoNoBanco(index);
     if (!aId) return;
-
     const atual = presencas[aId]?.[dataAula] || "";
     let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
-    
     setPresencas((p: any) => ({ ...p, [aId]: { ...(p[aId] || {}), [dataAula]: novoStatus } }));
-
     if (novoStatus === "") {
       await supabase.from('frequencia').delete().match({ aluno_id: aId, data_aula: dataAula, mes: mes });
     } else {
-      await supabase.from('frequencia').upsert({ 
-        aluno_id: aId, 
-        turma_id: idAtivo,
-        data_aula: dataAula, 
-        mes: mes,
-        status: novoStatus 
-      });
+      await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mes, status: novoStatus });
     }
   };
 
-  // --- RENDER MENU ---
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">Sincronizando...</div>;
+
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
       <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
@@ -116,7 +105,6 @@ export default function CasaDaCultura2026() {
     </div>
   );
 
-  // --- RENDER LISTA DE TURMAS (Com as cores de alerta restauradas) ---
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => t.professor === profSel);
     return (
@@ -131,17 +119,11 @@ export default function CasaDaCultura2026() {
                 {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
                   const n = contagemAlunos[c.id] || 0;
                   const limit = obterLimiteOficina(c.oficina);
-                  // RESTAURADO: Lógica de cores
                   const corBorda = n > limit ? 'border-red-600' : n === limit ? 'border-yellow-500' : 'border-black';
-                  const corTexto = n > limit ? 'text-red-600' : 'text-black';
-
                   return (
                     <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all ${corBorda}`}>
                       <div><span className="text-2xl block leading-none">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                      <div className="text-right font-black italic">
-                        <span className={`text-lg ${corTexto}`}>{n} / {limit}</span>
-                        <p className="text-[8px] text-gray-400 uppercase">Vagas</p>
-                      </div>
+                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
                     </div>
                   )
                 })}
@@ -153,22 +135,34 @@ export default function CasaDaCultura2026() {
     );
   }
 
-  // (O restante do código da Chamada/Folha de Impressão segue o design de folha branca que você aprovou)
+  const curso = turmas.find(t => t.id === idAtivo);
+  const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
+  
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
-      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md font-black">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic">← VOLTAR</button>
+      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
+        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] italic">NOVO ALUNO +</button>
-          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black italic">IMPRIMIR</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic underline">NOVO ALUNO +</button>
+          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR</button>
         </div>
       </nav>
 
       <div className="folha-container max-w-[1300px] mx-auto p-10 mt-6 border-4 border-black bg-white mb-20 shadow-2xl">
-        <header className="flex justify-between items-end mb-8 border-b-8 border-black pb-4 italic">
-          <div><h1 className="text-6xl tracking-tighter mb-2 font-black leading-none">{turmas.find(t=>t.id===idAtivo)?.professor}</h1><div className="flex gap-3 font-black text-lg"><span>{turmas.find(t=>t.id===idAtivo)?.oficina}</span><span className="bg-black text-white px-2 py-0.5 text-xs">{turmas.find(t=>t.id===idAtivo)?.horario}</span></div></div>
-          <div className="text-right font-black uppercase"><span className="text-5xl block leading-none">{mesesNomes[mes]}</span><span className="text-[10px] text-gray-400">CASA DA CULTURA 2026</span></div>
+        <header className="flex justify-between items-end mb-8 border-b-8 border-black pb-4 italic font-black">
+          <div>
+            <h1 className="text-6xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
+            <div className="flex gap-3 text-lg items-center">
+                <span className="bg-black text-white px-3 py-1 text-sm">{diasTexto}</span>
+                <span className="border-2 border-black px-3 py-0.5 text-sm">{curso?.oficina}</span>
+                <span className="text-sm font-bold underline">{curso?.horario}</span>
+            </div>
+          </div>
+          <div className="text-right uppercase">
+            <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
+            <span className="text-[10px] text-gray-400 font-bold tracking-widest">CASA DA CULTURA 2026</span>
+          </div>
         </header>
 
         <table className="w-full border-collapse border-4 border-black font-black uppercase">
@@ -177,7 +171,6 @@ export default function CasaDaCultura2026() {
               <th className="border-2 border-black w-10 text-[10px]">Nº</th>
               <th className="border-2 border-black p-2 text-left min-w-[300px]">NOME DO ALUNO</th>
               {(() => {
-                const curso = turmas.find(c => c.id === idAtivo);
                 const inputStr = String(curso?.dias);
                 let diasAlvo = inputStr.includes('2') ? [2, 4] : [1, 3];
                 const datas = [];
@@ -194,18 +187,17 @@ export default function CasaDaCultura2026() {
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
-              const faltas = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
+              const f = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
                 <tr key={aluno.id || `temp-${i}`}>
                   <td className="border-2 border-black text-center text-[10px] italic">{i+1}</td>
                   <td className="border-2 border-black px-2">
-                    <input className={`w-full bg-transparent outline-none font-black text-sm uppercase italic ${faltas >= 3 ? 'text-red-600 underline' : 'text-black'}`} 
+                    <input className={`w-full bg-transparent outline-none font-black text-sm uppercase italic ${f >= 3 ? 'text-red-600 underline' : 'text-black'}`} 
                            value={aluno.nome || ""} 
                            onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} 
                            onBlur={() => salvarAlunoNoBanco(i)} />
                   </td>
                   {(() => {
-                    const curso = turmas.find(c => c.id === idAtivo);
                     const inputStr = String(curso?.dias);
                     let diasAlvo = inputStr.includes('2') ? [2, 4] : [1, 3];
                     const datas = [];
@@ -217,14 +209,14 @@ export default function CasaDaCultura2026() {
                     return datas.map(dt => (
                       <td key={dt} onClick={() => alternarPresenca(i, dt)} 
                           className={`border-2 border-black text-center cursor-pointer text-xl font-black select-none 
-                          ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100 text-green-700' : 
-                            presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100 text-red-700' : 
-                            presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-100 text-blue-700' : ''}`}>
+                          ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100' : 
+                            presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100' : 
+                            presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-100' : ''}`}>
                         {presencas[aluno.id]?.[dt]}
                       </td>
                     ));
                   })()}
-                  <td className="border-2 border-black text-center no-print text-lg">{faltas}</td>
+                  <td className="border-2 border-black text-center no-print text-lg">{f}</td>
                   <td className="border-2 border-black text-center no-print">
                     <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); }}} className="text-gray-200 hover:text-red-600 font-bold text-[10px]">X</button>
                   </td>
