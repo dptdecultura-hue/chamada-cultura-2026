@@ -83,6 +83,24 @@ export default function CasaDaCultura2026() {
     fetchDadosGlobaIs(); fetchTurmas();
   };
 
+  const excluirAluno = async (id: any, index: number) => {
+    if (!id) {
+      const n = [...alunosLocais];
+      n.splice(index, 1);
+      setAlunosLocais(n);
+      return;
+    }
+    if (confirm("EXCLUIR ALUNO E TODAS AS SUAS PRESENÇAS?")) {
+      await supabase.from('frequencia').delete().eq('aluno_id', id);
+      await supabase.from('alunos').delete().eq('id', id);
+      const n = [...alunosLocais];
+      n.splice(index, 1);
+      setAlunosLocais(n);
+      fetchDadosGlobaIs();
+      fetchTurmas();
+    }
+  };
+
   const alternarPresenca = async (index: number, dataAula: string) => {
     let aId = alunosLocais[index].id;
     if (!aId) aId = await salvarAlunoNoBanco(index);
@@ -105,7 +123,7 @@ export default function CasaDaCultura2026() {
     const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
       <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
+        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter uppercase">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
         
         <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
@@ -113,7 +131,7 @@ export default function CasaDaCultura2026() {
                 <span className="text-3xl text-blue-600">{todosAlunos.length}</span>
             </div>
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block">ATIVOS (PRESENÇA)</span>
+                <span className="text-[10px] block font-bold">ATIVOS (PRESENÇA)</span>
                 <span className="text-3xl text-green-600">{ativosSet.size}</span>
             </div>
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
@@ -126,14 +144,14 @@ export default function CasaDaCultura2026() {
             </div>
         </div>
 
-        <div className="mb-10"><button onClick={() => setTela('busca')} className="bg-red-600 text-white px-8 py-4 border-4 border-black shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all text-lg animate-pulse">🔍 BUSCA ATIVA</button></div>
+        <div className="mb-10"><button onClick={() => setTela('busca')} className="bg-red-600 text-white px-8 py-4 border-4 border-black shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all text-lg animate-pulse font-black italic">🔍 BUSCA ATIVA</button></div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {listaProfessores.map(p => {
             const isPiano = p === "MICHEL (PIANO)";
             const mat = turmas.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
             return (
-              <button key={p} onClick={() => { setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista'); }} className="border-4 border-black bg-white p-8 flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
+              <button key={p} onClick={() => { setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista'); }} className="border-4 border-black bg-white p-8 flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black italic">
                 <span className="text-sm">{p}</span>
                 <span className="text-[10px] text-blue-600 mt-2 font-bold">{mat} ALUNOS</span>
               </button>
@@ -157,7 +175,7 @@ export default function CasaDaCultura2026() {
            <button onClick={() => setTela('menu')} className="border-4 border-black px-4 py-2 font-black italic uppercase">← VOLTAR</button>
            <button onClick={() => window.print()} className="bg-black text-white px-8 py-2 border-4 border-black font-black uppercase">IMPRIMIR</button>
         </nav>
-        <h2 className="text-5xl mb-6 tracking-tighter">RELATÓRIO DE BUSCA ATIVA</h2>
+        <h2 className="text-5xl mb-6 tracking-tighter uppercase">RELATÓRIO DE BUSCA ATIVA</h2>
         <table className="w-full border-collapse border-4 border-black">
           <thead><tr className="bg-black text-white text-[10px]"><th className="p-3 text-left">CURSO</th><th className="p-3 text-left">ALUNO</th><th className="p-3 text-center">FALTAS</th><th className="p-3 text-left">CONTATO</th></tr></thead>
           <tbody>{alunosFaltosos.map((a, i) => (
@@ -177,12 +195,12 @@ export default function CasaDaCultura2026() {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase text-center">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 bg-gray-50 font-black italic uppercase">← VOLTAR</button>
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 bg-gray-50 font-black italic">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase">{profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
             <div key={d}>
-              <h3 className={`p-3 mb-6 border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000]`}>{d===1?'SEG/QUA':'TER/QUI'}</h3>
+              <h3 className={`p-3 mb-6 border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] uppercase font-black`}>{d===1?'SEG/QUA':'TER/QUI'}</h3>
               <div className="space-y-4">
                 {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
                    const mat = contagemAlunos[c.id] || 0;
@@ -207,16 +225,23 @@ export default function CasaDaCultura2026() {
       <nav className="no-print bg-white border-b-4 border-black p-4 flex justify-between items-center px-8 sticky top-0 z-50">
         <button onClick={()=>setTela('lista')} className="border-4 border-black px-4 py-2 font-black italic uppercase">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black font-black uppercase">NOVO ALUNO +</button>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black uppercase">IMPRIMIR</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black font-black">NOVO ALUNO +</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black">IMPRIMIR</button>
         </div>
       </nav>
-      <div className="max-w-[1300px] mx-auto p-10 border-4 border-black bg-white mb-10 mt-4">
-        <h1 className="text-4xl mb-6 uppercase italic font-black">{curso?.professor} - {curso?.oficina} ({curso?.horario})</h1>
+      
+      <div className="max-w-[1300px] mx-auto p-10 mt-4 bg-white mb-10">
+        <header className="border-b-8 border-black pb-4 mb-6">
+            <h1 className="text-5xl tracking-tighter uppercase font-black italic">{curso?.professor} - {curso?.oficina}</h1>
+            <p className="text-xl font-black italic underline">{curso?.horario} | MÊS: {mesesNomes[mes].toUpperCase()}</p>
+        </header>
+
         <table className="w-full border-collapse border-4 border-black">
           <thead>
             <tr className="bg-gray-100 text-[10px] italic font-black uppercase">
-              <th className="border-2 border-black w-8">Nº</th><th className="border-2 border-black p-2 text-left">ALUNO</th><th className="border-2 border-black p-2 text-left w-40 no-print">CONTATO</th>
+              <th className="border-2 border-black w-8">Nº</th>
+              <th className="border-2 border-black p-2 text-left">ALUNO</th>
+              <th className="border-2 border-black p-2 text-left w-36 no-print">TELEFONE</th>
               {(() => {
                 const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
                 const datas = [];
@@ -229,15 +254,16 @@ export default function CasaDaCultura2026() {
                     datas.push(`${diaFmt}/${mesFmt}`);
                   }
                 }
-                return datas.map(dt => <th key={dt} className="border-2 border-black w-10 text-[9px]">{dt}</th>);
+                return datas.map(dt => <th key={dt} className="border-2 border-black w-12 text-[9px]">{dt}</th>);
               })()}
+              <th className="border-2 border-black w-8 no-print">X</th>
             </tr>
           </thead>
           <tbody>{alunosLocais.map((aluno, i) => (
-            <tr key={aluno.id || `temp-${i}`}>
+            <tr key={aluno.id || `temp-${i}`} className="h-10">
               <td className="border-2 border-black text-center text-[10px] italic font-black">{i+1}</td>
               <td className="border-2 border-black px-2"><input className="w-full bg-transparent outline-none font-black text-xs uppercase italic" value={aluno.nome || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} /></td>
-              <td className="border-2 border-black px-2 no-print"><input className="w-full bg-transparent outline-none font-black text-[10px] text-blue-800" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} /></td>
+              <td className="border-2 border-black px-2 no-print"><input className="w-full bg-transparent outline-none font-black text-[10px] text-blue-800 uppercase italic" value={aluno.telefone || ""} onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} onBlur={() => salvarAlunoNoBanco(i)} /></td>
               {(() => {
                   const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
                   const datas = [];
@@ -251,9 +277,12 @@ export default function CasaDaCultura2026() {
                     }
                   }
                   return datas.map(dt => (
-                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-lg font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100 text-green-700' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100 text-red-700' : ''}`}>{presencas[aluno.id]?.[dt]}</td>
+                    <td key={dt} onClick={() => alternarPresenca(i, dt)} className={`border-2 border-black text-center cursor-pointer text-xl font-black ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-50 text-green-700' : presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-50 text-red-700' : ''}`}>{presencas[aluno.id]?.[dt]}</td>
                   ));
                 })()}
+              <td className="border-2 border-black text-center no-print">
+                <button onClick={() => excluirAluno(aluno.id, i)} className="text-red-600 font-black hover:scale-110 px-1">✕</button>
+              </td>
             </tr>
           ))}</tbody>
         </table>
@@ -261,3 +290,4 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
+
