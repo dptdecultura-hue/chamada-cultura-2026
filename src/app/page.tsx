@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function CasaDaCultura2026() {
   const [tela, setTela] = useState('menu')
   const [profSel, setProfSel] = useState("")
+  const [oficinaSel, setOficinaSel] = useState("") // NOVO: Para separar por curso
   const [idAtivo, setIdAtivo] = useState<any>(null)
   const [mes, setMes] = useState(new Date().getMonth())
   const [turmas, setTurmas] = useState<any[]>([])
@@ -14,12 +15,6 @@ export default function CasaDaCultura2026() {
   const [contagemAlunos, setContagemAlunos] = useState<any>({})
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-
-  // FUNÇÃO PARA TRATAR O NOME DO PROFESSOR (PIANO -> MICHEL)
-  const tratarNomeProfessor = (nome: string, oficina: string) => {
-    if (oficina?.toUpperCase().includes("PIANO")) return "MICHEL";
-    return nome;
-  };
 
   const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
@@ -35,7 +30,7 @@ export default function CasaDaCultura2026() {
     if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) 
       return `${base}Técnica Vocal e Coro${final}que sua voz continue ecoando incentivo, alegria e paixão pela música.`;
     if (o.includes("FLAUTA")) 
-      return `${base}Flauta${final}que o sopro da música renove suas energies e traga leveza à rotina.`;
+      return `${base}Flauta${final}que o sopro da música renove suas energias e traga leveza à rotina.`;
     if (o.includes("VIOLÃO")) 
       return `${base}Violão${final}que cada acorde continue espalhando inspiração e boas vibrações.`;
     if (o.includes("MUSICALIZAÇÃO")) 
@@ -66,10 +61,7 @@ export default function CasaDaCultura2026() {
     const contagem: any = {};
     aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1; });
     setContagemAlunos(contagem);
-    if (tData) {
-      const turmasTratadas = tData.map(t => ({...t, professor: tratarNomeProfessor(t.professor, t.oficina)}));
-      setTurmas(turmasTratadas.sort((a, b) => a.horario.localeCompare(b.horario)));
-    }
+    if (tData) setTurmas(tData.sort((a, b) => a.horario.localeCompare(b.horario)));
     setLoading(false);
   }
 
@@ -123,26 +115,38 @@ export default function CasaDaCultura2026() {
 
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
-  if (tela === 'menu') return (
-    <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-      <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-        {[...new Set(turmas.map(t => t.professor))].sort().map(p => (
-          <button key={p} onClick={() => {setProfSel(p); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
-            {p}
-            <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{(turmas.filter(t => t.professor === p).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0))} ALUNOS</span>
-          </button>
-        ))}
+  if (tela === 'menu') {
+    // Agrupa por Professor e Oficina para separar Michel Piano de Michel Violão
+    const categorias = [...new Set(turmas.map(t => `${t.professor}|${t.oficina}`))].sort();
+
+    return (
+      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
+        <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          {categorias.map(cat => {
+            const [p, o] = cat.split('|');
+            const totalAlunos = turmas.filter(t => t.professor === p && t.oficina === o).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+            return (
+              <button key={cat} onClick={() => {setProfSel(p); setOficinaSel(o); setTela('lista');}} className="border-4 border-black bg-white p-6 text-xs flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
+                <span className="text-sm">{p}</span>
+                <span className="text-[9px] bg-black text-white px-2 mt-1 mb-2">{o}</span>
+                <span className="text-[10px] text-blue-600 font-bold italic">{totalAlunos} ALUNOS</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   if (tela === 'lista') {
-    const turmasDoProf = turmas.filter(t => t.professor === profSel);
+    // Filtra tanto pelo professor quanto pela oficina selecionada
+    const turmasDoProf = turmas.filter(t => t.professor === profSel && t.oficina === oficinaSel);
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50">← VOLTAR</button>
-        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter">{profSel}</h2>
+        <h2 className="text-5xl mb-2 tracking-tighter">{profSel}</h2>
+        <h3 className="text-xl mb-12 text-blue-600 italic border-b-8 border-black pb-4">{oficinaSel}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
             <div key={d}>
@@ -154,7 +158,7 @@ export default function CasaDaCultura2026() {
                   const corBorda = n > limit ? 'border-red-600' : n === limit ? 'border-yellow-500' : 'border-black';
                   return (
                     <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all ${corBorda}`}>
-                      <div><span className="text-2xl block leading-none">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
+                      <div><span className="text-2xl block leading-none">{c.horario}</span></div>
                       <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
                     </div>
                   )
@@ -169,7 +173,6 @@ export default function CasaDaCultura2026() {
 
   const curso = turmas.find(t => t.id === idAtivo);
   const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
-  const nomeProfFinal = tratarNomeProfessor(curso?.professor || "", curso?.oficina || "");
   
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
@@ -179,14 +182,14 @@ export default function CasaDaCultura2026() {
           @page { size: auto; margin: 0mm; }
           .no-print { display: none !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
-          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 15mm !important; }
+          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 12mm !important; }
           table { width: 100% !important; border-width: 2px !important; }
           th, td { border-width: 1px !important; }
         }
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); setProfSel(nomeProfFinal); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
+        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
         <div className="flex gap-4">
           <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
@@ -197,7 +200,7 @@ export default function CasaDaCultura2026() {
       <div className="folha-container max-w-[1300px] mx-auto p-10 mt-4 border-4 border-black bg-white mb-10 shadow-2xl">
         <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black">
           <div>
-            <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase">{nomeProfFinal}</h1>
+            <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
             <div className="flex gap-3 text-sm items-center">
                 <span className="bg-black text-white px-3 py-1">{diasTexto}</span>
                 <span className="border-2 border-black px-3 py-0.5">{curso?.oficina}</span>
@@ -278,7 +281,7 @@ export default function CasaDaCultura2026() {
             </p>
             <div className="text-center">
               <div className="w-64 border-b-2 border-black mb-1"></div>
-              <p className="text-[9px] font-black tracking-tighter">ASSINATURA DO PROFESSOR(A): {nomeProfFinal}</p>
+              <p className="text-[9px] font-black tracking-tighter">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
             </div>
           </div>
           <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em]">
