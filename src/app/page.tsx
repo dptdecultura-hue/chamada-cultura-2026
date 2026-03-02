@@ -112,7 +112,7 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">ATUALIZANDO...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">CARREGANDO...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
@@ -163,11 +163,13 @@ export default function CasaDaCultura2026() {
   
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
+      <title>CASA DA CULTURA 2026</title>
       <style jsx global>{`
         @media print {
+          @page { size: auto; margin: 0mm; }
           .no-print { display: none !important; }
-          body { background: white !important; margin: 0 !important; padding: 0 !important; }
-          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10px !important; }
+          body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
+          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 15mm !important; }
           table { width: 100% !important; border-width: 2px !important; }
           th, td { border-width: 1px !important; }
         }
