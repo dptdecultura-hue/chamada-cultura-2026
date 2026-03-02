@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function CasaDaCultura2026() {
   const [tela, setTela] = useState('menu')
   const [profSel, setProfSel] = useState("")
-  const [oficinaSel, setOficinaSel] = useState("") // NOVO: Para separar por curso
+  const [filtroOficina, setFiltroOficina] = useState("") // Para separar Piano no menu
   const [idAtivo, setIdAtivo] = useState<any>(null)
   const [mes, setMes] = useState(new Date().getMonth())
   const [turmas, setTurmas] = useState<any[]>([])
@@ -116,21 +116,30 @@ export default function CasaDaCultura2026() {
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
   if (tela === 'menu') {
-    // Agrupa por Professor e Oficina para separar Michel Piano de Michel Violão
-    const categorias = [...new Set(turmas.map(t => `${t.professor}|${t.oficina}`))].sort();
+    // Lógica para manter Michel Piano separado de Michel Violão no menu
+    const listaProfessores = [...new Set(turmas.map(t => {
+        if (t.oficina.toUpperCase().includes("PIANO")) return `MICHEL (PIANO)`;
+        return t.professor;
+    }))].sort();
 
     return (
       <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
         <h1 className="text-4xl font-black mb-12 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {categorias.map(cat => {
-            const [p, o] = cat.split('|');
-            const totalAlunos = turmas.filter(t => t.professor === p && t.oficina === o).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+          {listaProfessores.map(p => {
+            const isPiano = p === "MICHEL (PIANO)";
+            const profFiltro = isPiano ? "MICHEL" : p;
+            const oficinaFiltro = isPiano ? "PIANO" : "";
+
+            const totalAlunos = turmas.filter(t => {
+                if (isPiano) return t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO");
+                return t.professor === p && !t.oficina.toUpperCase().includes("PIANO");
+            }).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+
             return (
-              <button key={cat} onClick={() => {setProfSel(p); setOficinaSel(o); setTela('lista');}} className="border-4 border-black bg-white p-6 text-xs flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
-                <span className="text-sm">{p}</span>
-                <span className="text-[9px] bg-black text-white px-2 mt-1 mb-2">{o}</span>
-                <span className="text-[10px] text-blue-600 font-bold italic">{totalAlunos} ALUNOS</span>
+              <button key={p} onClick={() => {setProfSel(profFiltro); setFiltroOficina(oficinaFiltro); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
+                {p}
+                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalAlunos} ALUNOS</span>
               </button>
             )
           })}
@@ -140,13 +149,15 @@ export default function CasaDaCultura2026() {
   }
 
   if (tela === 'lista') {
-    // Filtra tanto pelo professor quanto pela oficina selecionada
-    const turmasDoProf = turmas.filter(t => t.professor === profSel && t.oficina === oficinaSel);
+    const turmasDoProf = turmas.filter(t => {
+        if (filtroOficina === "PIANO") return t.professor === profSel && t.oficina.toUpperCase().includes("PIANO");
+        return t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO");
+    });
+
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50">← VOLTAR</button>
-        <h2 className="text-5xl mb-2 tracking-tighter">{profSel}</h2>
-        <h3 className="text-xl mb-12 text-blue-600 italic border-b-8 border-black pb-4">{oficinaSel}</h3>
+        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
             <div key={d}>
@@ -158,7 +169,7 @@ export default function CasaDaCultura2026() {
                   const corBorda = n > limit ? 'border-red-600' : n === limit ? 'border-yellow-500' : 'border-black';
                   return (
                     <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all ${corBorda}`}>
-                      <div><span className="text-2xl block leading-none">{c.horario}</span></div>
+                      <div><span className="text-2xl block leading-none">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
                       <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
                     </div>
                   )
