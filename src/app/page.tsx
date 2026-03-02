@@ -112,7 +112,7 @@ export default function CasaDaCultura2026() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic">CARREGANDO...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
   if (tela === 'menu') return (
     <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
@@ -196,7 +196,7 @@ export default function CasaDaCultura2026() {
           </div>
           <div className="text-right uppercase">
             <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
-            <span className="text-[9px] text-gray-500 font-bold tracking-widest">CASA DA CULTURA 2026</span>
+            <span className="text-[9px] text-gray-500 font-bold tracking-widest text-center">CASA DA CULTURA 2026</span>
           </div>
         </header>
 
@@ -216,7 +216,7 @@ export default function CasaDaCultura2026() {
                 }
                 return datas.map(dt => <th key={dt} className="border-2 border-black w-14 text-[9px]">{dt}</th>);
               })()}
-              <th className="border-2 border-black w-12 text-[9px]">FALTAS</th>
+              <th className="border-2 border-black w-12 text-[9px] no-print">FALTAS</th>
               <th className="border-2 border-black w-10 no-print"></th>
             </tr>
           </thead>
@@ -251,7 +251,7 @@ export default function CasaDaCultura2026() {
                       </td>
                     ));
                   })()}
-                  <td className="border-2 border-black text-center text-sm">{f}</td>
+                  <td className="border-2 border-black text-center text-sm no-print">{f}</td>
                   <td className="border-2 border-black text-center no-print">
                     <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); }}} className="text-gray-200 hover:text-red-600 font-bold text-[10px]">X</button>
                   </td>
