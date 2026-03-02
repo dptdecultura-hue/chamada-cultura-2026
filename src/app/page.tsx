@@ -15,6 +15,12 @@ export default function CasaDaCultura2026() {
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
+  // FUNÇÃO PARA TRATAR O NOME DO PROFESSOR (PIANO -> MICHEL)
+  const tratarNomeProfessor = (nome: string, oficina: string) => {
+    if (oficina?.toUpperCase().includes("PIANO")) return "MICHEL";
+    return nome;
+  };
+
   const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
@@ -29,7 +35,7 @@ export default function CasaDaCultura2026() {
     if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) 
       return `${base}Técnica Vocal e Coro${final}que sua voz continue ecoando incentivo, alegria e paixão pela música.`;
     if (o.includes("FLAUTA")) 
-      return `${base}Flauta${final}que o sopro da música renove suas energias e traga leveza à rotina.`;
+      return `${base}Flauta${final}que o sopro da música renove suas energies e traga leveza à rotina.`;
     if (o.includes("VIOLÃO")) 
       return `${base}Violão${final}que cada acorde continue espalhando inspiração e boas vibrações.`;
     if (o.includes("MUSICALIZAÇÃO")) 
@@ -60,7 +66,10 @@ export default function CasaDaCultura2026() {
     const contagem: any = {};
     aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1; });
     setContagemAlunos(contagem);
-    if (tData) setTurmas(tData.sort((a, b) => a.horario.localeCompare(b.horario)));
+    if (tData) {
+      const turmasTratadas = tData.map(t => ({...t, professor: tratarNomeProfessor(t.professor, t.oficina)}));
+      setTurmas(turmasTratadas.sort((a, b) => a.horario.localeCompare(b.horario)));
+    }
     setLoading(false);
   }
 
@@ -160,6 +169,7 @@ export default function CasaDaCultura2026() {
 
   const curso = turmas.find(t => t.id === idAtivo);
   const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
+  const nomeProfFinal = tratarNomeProfessor(curso?.professor || "", curso?.oficina || "");
   
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
@@ -176,7 +186,7 @@ export default function CasaDaCultura2026() {
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
+        <button onClick={()=>{setTela('lista'); setProfSel(nomeProfFinal); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black">← VOLTAR</button>
         <div className="flex gap-4">
           <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
@@ -187,7 +197,7 @@ export default function CasaDaCultura2026() {
       <div className="folha-container max-w-[1300px] mx-auto p-10 mt-4 border-4 border-black bg-white mb-10 shadow-2xl">
         <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black">
           <div>
-            <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase">{curso?.professor}</h1>
+            <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase">{nomeProfFinal}</h1>
             <div className="flex gap-3 text-sm items-center">
                 <span className="bg-black text-white px-3 py-1">{diasTexto}</span>
                 <span className="border-2 border-black px-3 py-0.5">{curso?.oficina}</span>
@@ -268,7 +278,7 @@ export default function CasaDaCultura2026() {
             </p>
             <div className="text-center">
               <div className="w-64 border-b-2 border-black mb-1"></div>
-              <p className="text-[9px] font-black tracking-tighter">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
+              <p className="text-[9px] font-black tracking-tighter">ASSINATURA DO PROFESSOR(A): {nomeProfFinal}</p>
             </div>
           </div>
           <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em]">
