@@ -13,23 +13,12 @@ export default function CasaDaCultura2026() {
   const [presencas, setPresencas] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [contagemAlunos, setContagemAlunos] = useState<any>({})
+  const [modoGestao, setModoGestao] = useState(false)
 
-  // Estados para o Censo Automático
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-
-  // Lógica de Gênero preservada
-  const detectarGenero = (nomeCompleto: string) => {
-    if (!nomeCompleto) return null;
-    const nome = nomeCompleto.trim().split(' ')[0].toUpperCase();
-    const mascFixo = ["LUCA", "JOSHUA", "ALEXANDRE", "ANDRE", "FELIPE", "GUILHERME", "HENRIQUE", "MURILO", "OTAVIO", "SAMUEL", "GABRIEL", "RAFAEL", "DANIEL", "JEAN"];
-    const femFixo = ["ALICE", "BEATRIZ", "ESTER", "IRIS", "NICOLE", "RAQUEL", "RUTE", "YASMIN", "EMANUELLE", "JOYCE"];
-    if (mascFixo.includes(nome)) return 'M';
-    if (femFixo.includes(nome)) return 'F';
-    return nome.endsWith('A') ? 'F' : 'M';
-  };
 
   const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
@@ -92,6 +81,16 @@ export default function CasaDaCultura2026() {
     setPresencas(gridPre);
   }
 
+  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
+    if (!novaTurmaId) return;
+    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
+    if (!error) {
+        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
+        fetchTurmas(); fetchDadosGlobais();
+        alert("ALUNO TRANSFERIDO!");
+    }
+  };
+
   const salvarAlunoNoBanco = async (index: number) => {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return null;
@@ -99,23 +98,16 @@ export default function CasaDaCultura2026() {
         turma_id: idAtivo, 
         nome: aluno.nome.trim().toUpperCase(), 
         telefone: aluno.telefone || "", 
-        genero: detectarGenero(aluno.nome),
         posicao: index 
     };
-    if (aluno.id) {
-      await supabase.from('alunos').update(payload).eq('id', aluno.id);
-      return aluno.id;
-    } else {
+    if (aluno.id) await supabase.from('alunos').update(payload).eq('id', aluno.id);
+    else {
       const { data: novo } = await supabase.from('alunos').insert(payload).select();
-      if (novo && novo[0]) {
-        const n = [...alunosLocais];
-        n[index].id = novo[0].id;
-        setAlunosLocais(n);
-        fetchTurmas(); fetchDadosGlobais();
-        return novo[0].id;
+      if (novo?.[0]) {
+        const n = [...alunosLocais]; n[index].id = novo[0].id; setAlunosLocais(n);
       }
     }
-    return null;
+    fetchTurmas(); fetchDadosGlobais();
   };
 
   const alternarPresenca = async (index: number, dataAula: string) => {
@@ -130,46 +122,39 @@ export default function CasaDaCultura2026() {
     fetchDadosGlobais();
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white tracking-widest uppercase">CARREGANDO...</div>;
 
-  // Cálculos do Painel Principal
   const ativosSet = new Set(todasPresencas.filter(f => f.status === 'P').map(f => f.aluno_id));
-  const mulheres = todosAlunos.filter(a => detectarGenero(a.nome) === 'F').length;
-  const homens = todosAlunos.filter(a => detectarGenero(a.nome) === 'M').length;
 
   if (tela === 'menu') {
     const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
-      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
+      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center uppercase">
+        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter uppercase">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
         
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4 mb-10 uppercase">
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block">MATRICULADOS</span>
-                <span className="text-3xl text-blue-600">{todosAlunos.length}</span>
+                <span className="text-[10px] block font-black">MATRICULADOS</span>
+                <span className="text-3xl text-blue-600 font-black italic">{todosAlunos.length}</span>
             </div>
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block">ATIVOS NO MÊS</span>
-                <span className="text-3xl text-green-600">{ativosSet.size}</span>
+                <span className="text-[10px] block font-black">ATIVOS NO MÊS</span>
+                <span className="text-3xl text-green-600 font-black italic">{ativosSet.size}</span>
             </div>
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block">MULHERES</span>
-                <span className="text-3xl text-pink-500">{mulheres}</span>
-            </div>
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block">HOMENS</span>
-                <span className="text-3xl text-blue-400">{homens}</span>
+            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000] cursor-pointer hover:bg-black hover:text-white transition-all group" onClick={() => setModoGestao(!modoGestao)}>
+                <span className="text-[10px] block font-black">{modoGestao ? 'FECHAR GESTÃO' : 'MODO GESTÃO'}</span>
+                <span className="text-3xl font-black italic group-hover:text-red-500">{modoGestao ? 'ATIVO' : 'OFF'}</span>
             </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto uppercase">
           {listaProfessores.map(p => {
             const isPiano = p === "MICHEL (PIANO)";
             const totalAlunos = turmas.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
             return (
-              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all">
+              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black italic uppercase">
                 {p}
-                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalAlunos} ALUNOS</span>
+                <span className="text-[10px] text-blue-600 mt-2 font-black italic">{totalAlunos} ALUNOS</span>
               </button>
             )
           })}
@@ -181,21 +166,21 @@ export default function CasaDaCultura2026() {
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
-      <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
-        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
+      <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase uppercase">
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-black italic bg-gray-50 uppercase">← VOLTAR</button>
+        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
             <div key={d}>
-              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000]`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
+              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black uppercase`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
               <div className="space-y-4">
                 {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
                   const n = contagemAlunos[c.id] || 0;
                   const limit = obterLimiteOficina(c.oficina);
                   return (
                     <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
-                      <div><span className="text-2xl block leading-none">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
+                      <div><span className="text-2xl block leading-none font-black italic uppercase">{c.horario}</span><span className="text-[10px] text-gray-400 font-black italic">{c.oficina}</span></div>
+                      <div className="text-right font-black italic uppercase"><span className="text-lg">{n} / {limit}</span></div>
                     </div>
                   )
                 })}
@@ -211,30 +196,18 @@ export default function CasaDaCultura2026() {
   const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
   
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white">
-      <title>CASA DA CULTURA 2026</title>
-      <style jsx global>{`
-        @media print {
-          @page { size: auto; margin: 0mm; }
-          .no-print { display: none !important; }
-          body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
-          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 12mm !important; }
-          table { width: 100% !important; border-width: 2px !important; }
-          th, td { border-width: 1px !important; }
-        }
-      `}</style>
-
-      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
+    <div className="min-h-screen italic font-black uppercase bg-white uppercase">
+      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md uppercase">
         <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic uppercase">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic uppercase">IMPRIMIR</button>
         </div>
       </nav>
 
       <div className="folha-container max-w-[1300px] mx-auto p-10 mt-4 border-4 border-black bg-white mb-10 shadow-2xl">
-        <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black">
+        <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black uppercase">
           <div>
             <h1 className="text-5xl tracking-tighter mb-2 leading-none uppercase font-black">{curso?.professor}</h1>
             <div className="flex gap-3 text-sm items-center uppercase font-black">
@@ -244,8 +217,8 @@ export default function CasaDaCultura2026() {
             </div>
           </div>
           <div className="text-right uppercase font-black">
-            <span className="text-5xl block leading-none">{mesesNomes[mes]}</span>
-            <span className="text-[9px] text-gray-500 font-bold tracking-widest text-center">CASA DA CULTURA 2026</span>
+            <span className="text-5xl block leading-none italic">{mesesNomes[mes]}</span>
+            <span className="text-[9px] text-gray-400 font-bold tracking-widest text-center italic">CASA DA CULTURA 2026</span>
           </div>
         </header>
 
@@ -254,6 +227,7 @@ export default function CasaDaCultura2026() {
             <tr className="bg-gray-100 italic">
               <th className="border-2 border-black w-8 text-[10px]">Nº</th>
               <th className="border-2 border-black p-2 text-left min-w-[280px]">NOME DO ALUNO</th>
+              <th className="border-2 border-black p-2 text-left w-36 no-print">CONTATO</th>
               {(() => {
                 const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
                 const datas = [];
@@ -264,21 +238,33 @@ export default function CasaDaCultura2026() {
                 }
                 return datas.map(dt => <th key={dt} className="border-2 border-black w-14 text-[9px]">{dt}</th>);
               })()}
-              <th className="border-2 border-black w-12 text-[9px] no-print">FALTAS</th>
-              <th className="border-2 border-black w-10 no-print"></th>
+              {modoGestao && <th className="border-2 border-black w-24 no-print text-[9px]">TRANSFERIR</th>}
+              <th className="border-2 border-black w-8 no-print"></th>
             </tr>
           </thead>
           <tbody>
             {alunosLocais.map((aluno, i) => {
               const f = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
-                <tr key={aluno.id || `temp-${i}`}>
-                  <td className="border-2 border-black text-center text-[10px] italic">{i+1}</td>
+                <tr key={aluno.id || `temp-${i}`} className="h-10">
+                  <td className="border-2 border-black text-center text-[10px] italic font-black">{i+1}</td>
                   <td className="border-2 border-black px-2">
                     <input className={`w-full bg-transparent outline-none font-black text-xs uppercase italic ${f >= 3 ? 'text-red-600 underline' : 'text-black'}`} 
                            value={aluno.nome || ""} 
                            onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} 
                            onBlur={() => salvarAlunoNoBanco(i)} />
+                  </td>
+                  <td className="border-2 border-black px-2 no-print">
+                    <div className="flex items-center justify-between">
+                        <input className="w-full bg-transparent outline-none font-black text-[10px] text-blue-800 italic" 
+                               value={aluno.telefone || ""} 
+                               onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} 
+                               onBlur={() => salvarAlunoNoBanco(i)} placeholder="DDD9..." />
+                        {aluno.telefone && (
+                            <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}?text=Olá, sou da Casa da Cultura, gostaria de falar sobre as aulas de ${curso?.oficina}`} 
+                               target="_blank" className="ml-1 text-green-600 font-bold text-xs">WA</a>
+                        )}
+                    </div>
                   </td>
                   {(() => {
                     const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
@@ -298,9 +284,18 @@ export default function CasaDaCultura2026() {
                       </td>
                     ));
                   })()}
-                  <td className="border-2 border-black text-center text-sm no-print">{f}</td>
+                  {modoGestao && (
+                    <td className="border-2 border-black px-1 no-print">
+                        <select className="w-full text-[8px] font-black uppercase bg-gray-100" onChange={(e) => transferirAluno(aluno.id, e.target.value)}>
+                            <option value="">MOVER PARA:</option>
+                            {turmas.filter(t => t.professor === curso?.professor && t.id !== idAtivo).map(t => (
+                                <option key={t.id} value={t.id}>{t.horario} ({t.oficina})</option>
+                            ))}
+                        </select>
+                    </td>
+                  )}
                   <td className="border-2 border-black text-center no-print">
-                    <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); fetchDadosGlobais(); }}} className="text-gray-200 hover:text-red-600 font-bold text-[10px]">X</button>
+                    <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); fetchDadosGlobais(); }}} className="text-gray-300 hover:text-red-600 font-black text-[10px]">✕</button>
                   </td>
                 </tr>
               )
