@@ -14,22 +14,12 @@ export default function CasaDaCultura2026() {
   const [loading, setLoading] = useState(true)
   const [contagemAlunos, setContagemAlunos] = useState<any>({})
   const [modoGestao, setModoGestao] = useState(false)
+
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
 
-  // Estado para a Ficha de Matrícula (campos do PDF)
-  const [ficha, setFicha] = useState({
-    nome: '', nome_social: '', cpf_rg: '', data_nascimento: '', idade: '',
-    telefone: '', whatsapp: '', genero: '', escola: '', nis: '',
-    responsavel_nome: '', responsavel_cpf: '', responsavel_telefone: '', responsavel_profissao: '',
-    rua: '', bairro: '', cidade: 'Teixeira de Freitas', numero: '',
-    alergia: 'Não', alergia_qual: '', saude_problema: 'Não', saude_qual: '',
-    tipo_sanguineo: '', sus: ''
-  })
-
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
-  // --- LÓGICA DE NEGÓCIO PRESERVADA ---
   const detectarGenero = (nomeCompleto: string) => {
     if (!nomeCompleto) return null;
     const nome = nomeCompleto.trim().split(' ')[0].toUpperCase();
@@ -101,7 +91,6 @@ export default function CasaDaCultura2026() {
     setPresencas(gridPre);
   }
 
-  // --- FUNÇÕES DE AÇÃO ---
   const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
     if (!novaTurmaId) return;
     const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
@@ -109,23 +98,6 @@ export default function CasaDaCultura2026() {
         setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
         fetchTurmas(); fetchDadosGlobais();
         alert("ALUNO TRANSFERIDO!");
-    }
-  };
-
-  const salvarMatriculaCompleta = async () => {
-    if (!ficha.nome || !idAtivo) return alert("NOME E TURMA SÃO OBRIGATÓRIOS!");
-    const { error } = await supabase.from('alunos').insert([{ 
-        ...ficha, 
-        turma_id: idAtivo, 
-        genero: detectarGenero(ficha.nome),
-        posicao: (contagemAlunos[idAtivo] || 0) 
-    }]);
-    if (!error) {
-      alert("MATRÍCULA REALIZADA!");
-      setTela('lista');
-      fetchTurmas(); fetchDadosGlobais();
-    } else {
-      alert("ERRO AO SALVAR. VERIFIQUE SE AS COLUNAS FORAM CRIADAS NO SQL.");
     }
   };
 
@@ -173,57 +145,6 @@ export default function CasaDaCultura2026() {
   const mulheres = todosAlunos.filter(a => detectarGenero(a.nome) === 'F').length;
   const homens = todosAlunos.filter(a => detectarGenero(a.nome) === 'M').length;
 
-  // --- NOVA TELA: FICHA DE MATRÍCULA ---
-  if (tela === 'matricula') {
-    return (
-      <div className="min-h-screen p-4 md:p-8 bg-gray-100 font-black uppercase italic">
-        <div className="max-w-4xl mx-auto bg-white border-8 border-black p-6 shadow-[10px_10px_0px_#000]">
-          <h2 className="text-3xl border-b-4 border-black mb-6">FICHA DE MATRÍCULA 2026</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <span className="bg-black text-white px-2">IDENTIFICAÇÃO</span>
-              <input placeholder="NOME COMPLETO" className="w-full border-b-2 border-black p-1 outline-none focus:bg-yellow-50" onChange={e => setFicha({...ficha, nome: e.target.value.toUpperCase()})} />
-              <input placeholder="CPF OU RG" className="w-full border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, cpf_rg: e.target.value})} />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="date" className="border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, data_nascimento: e.target.value})} />
-                <input placeholder="TELEFONE" className="border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, telefone: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <span className="bg-black text-white px-2">SAÚDE</span>
-              <div className="flex gap-2 items-center">
-                <label className="text-[10px]">ALERGIA?</label>
-                <select className="border-2 border-black text-xs" onChange={e => setFicha({...ficha, alergia: e.target.value})}>
-                    <option value="Não">NÃO</option><option value="Sim">SIM</option>
-                </select>
-                <input placeholder="QUAL?" className="flex-1 border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, alergia_qual: e.target.value})} />
-              </div>
-              <input placeholder="Nº DO SUS" className="w-full border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, sus: e.target.value})} />
-              <input placeholder="TIPO SANGUÍNEO" className="w-full border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, tipo_sanguineo: e.target.value})} />
-            </div>
-
-            <div className="md:col-span-2 space-y-4">
-              <span className="bg-black text-white px-2">ENDEREÇO</span>
-              <div className="grid grid-cols-4 gap-2">
-                <input placeholder="RUA" className="col-span-2 border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, rua: e.target.value})} />
-                <input placeholder="Nº" className="border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, numero: e.target.value})} />
-                <input placeholder="BAIRRO" className="border-b-2 border-black p-1 outline-none" onChange={e => setFicha({...ficha, bairro: e.target.value})} />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-10 flex justify-between">
-            <button onClick={() => setTela('lista')} className="border-4 border-black px-6 py-2 hover:bg-black hover:text-white transition-all">VOLTAR</button>
-            <button onClick={salvarMatriculaCompleta} className="bg-blue-600 text-white border-4 border-black px-10 py-2 shadow-[4px_4px_0px_#000]">CONFIRMAR MATRÍCULA</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- TELAS ORIGINAIS PRESERVADAS ---
   if (tela === 'menu') {
     const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
@@ -273,10 +194,8 @@ export default function CasaDaCultura2026() {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <div className="flex justify-between items-center mb-12 border-b-8 border-black pb-4">
-            <h2 className="text-4xl md:text-6xl tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
-            <button onClick={() => setTela('menu')} className="text-xs border-4 border-black px-4 py-2 font-bold italic bg-white shadow-[4px_4px_0px_#000]">VOLTAR</button>
-        </div>
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
+        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
             <div key={d}>
@@ -305,17 +224,27 @@ export default function CasaDaCultura2026() {
   
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
+      <title>CASA DA CULTURA 2026</title>
+      <style jsx global>{`
+        @media print {
+          @page { size: auto; margin: 0mm; }
+          .no-print { display: none !important; }
+          body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
+          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 12mm !important; }
+          table { width: 100% !important; border-width: 2px !important; }
+          th, td { border-width: 1px !important; }
+        }
+      `}</style>
+
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setTela('matricula')} className="bg-yellow-400 text-black px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">FICHA DE MATRÍCULA +</button>
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">LINHA RÁPIDA +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR</button>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
         </div>
       </nav>
 
-      {/* A folha de chamada continua exatamente igual à sua "perfeita" */}
       <div className="folha-container max-w-[1300px] mx-auto p-10 mt-4 border-4 border-black bg-white mb-10 shadow-2xl">
         <header className="flex justify-between items-end mb-6 border-b-8 border-black pb-4 italic font-black">
           <div>
@@ -372,12 +301,11 @@ export default function CasaDaCultura2026() {
                                onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} 
                                onBlur={() => salvarAlunoNoBanco(i)} placeholder="DDD9..." />
                         {aluno.telefone && (
-                            <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}?text=Olá, sou da Casa da Cultura...`} 
+                            <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}?text=Olá, sou da Casa da Cultura, gostaria de falar sobre as aulas de ${curso?.oficina}`} 
                                target="_blank" className="ml-1 text-green-600 font-black text-xs">WA</a>
                         )}
                     </div>
                   </td>
-                  {/* Presenças (P/F/J) */}
                   {(() => {
                     const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
                     const datas = [];
@@ -425,6 +353,9 @@ export default function CasaDaCultura2026() {
               <div className="w-64 border-b-2 border-black mb-1"></div>
               <p className="text-[9px] font-black tracking-tighter uppercase">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
             </div>
+          </div>
+          <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em] uppercase">
+            FOLHA DE CONTROLE DE FREQUÊNCIA - SECRETARIA DE CULTURA 2026
           </div>
         </footer>
       </div>
