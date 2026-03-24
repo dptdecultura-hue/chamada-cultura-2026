@@ -129,7 +129,7 @@ export default function CasaDaCultura2026() {
     fetchDadosGlobais();
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase text-black bg-white">CARREGANDO...</div>;
 
   const ativosSet = new Set(todasPresencas.filter((f: any) => f.status === 'P').map((f: any) => f.aluno_id));
   const mulheres = todosAlunos.filter((a: any) => detectarGenero(a.nome) === 'F').length;
@@ -250,20 +250,24 @@ export default function CasaDaCultura2026() {
 
       <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
         
-        {/* CABEÇALHO TABELADO OFICIAL (Corrigido para não cortar imagem) */}
+        {/* CABEÇALHO COM TEXTO PURO (NÃO QUEBRA NUNCA!) */}
         <div className="border border-black mb-1 p-4 flex justify-between items-center bg-white h-[110px]">
-          <div className="h-full flex items-center">
-            {/* Altura de 12 unidades (h-12), largura dinâmica (w-auto) e encaixado no canto esquerdo */}
-            <img 
-              src="/logo-prefeitura.png" 
-              alt="Logo Prefeitura" 
-              className="h-12 w-auto object-contain object-left"
-            />
+          <div className="flex items-center gap-4 h-full">
+            <div className="flex flex-col justify-center">
+              <span className="text-[11px] font-bold text-gray-600 leading-none mb-1">PREFEITURA DE</span>
+              <span className="text-3xl font-black text-blue-900 leading-none tracking-tighter">TEIXEIRA</span>
+              <span className="text-[11px] font-bold text-gray-600 leading-none mt-1">DE FREITAS</span>
+            </div>
+
+            <div className="h-14 w-[2px] bg-gray-400 mx-2"></div>
+
+            <div className="flex flex-col justify-center">
+              <span className="text-[11px] font-bold text-gray-600 leading-none mb-1">SECRETARIA DE</span>
+              <span className="text-sm font-black text-gray-800 leading-none tracking-tight">CULTURA E TURISMO</span>
+            </div>
           </div>
 
-          <div className="h-16 w-[1px] bg-gray-400"></div>
-
-          <div className="flex flex-col text-right font-sans">
+          <div className="flex flex-col text-right justify-center h-full">
             <span className="text-2xl font-black text-gray-800 leading-none">CASA DA</span>
             <span className="text-2xl font-black text-blue-600 leading-none">CULTURA</span>
             <span className="text-[10px] font-bold text-gray-500 mt-1">JARDIM EUROPA</span>
@@ -383,3 +387,4 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
+
