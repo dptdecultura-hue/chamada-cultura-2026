@@ -18,6 +18,7 @@ export default function CasaDaCultura2026() {
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
 
+  // VARIÁVEIS PARA ENCAIXAR SUAS LOGOS
   const [usarLogoPrefeitura, setUsarLogoPrefeitura] = useState(true)
   const [logoPrefeituraCustom, setLogoPrefeituraCustom] = useState<string | null>(null)
   const [alturaPrefeitura, setAlturaPrefeitura] = useState(48)
@@ -64,6 +65,16 @@ export default function CasaDaCultura2026() {
     if (o.includes("BATERIA") || o.includes("PERCUSSÃO")) return 10;
     return 15;
   };
+
+  // Carrega imagens guardadas no navegador quando abre a página
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const prefSalva = localStorage.getItem('logoPrefeitura');
+      const cultSalva = localStorage.getItem('logoCultura');
+      if (prefSalva) setLogoPrefeituraCustom(prefSalva);
+      if (cultSalva) setLogoCulturaCustom(cultSalva);
+    }
+  }, []);
 
   useEffect(() => { fetchTurmas(); fetchDadosGlobais(); }, [mes]);
   useEffect(() => { if (idAtivo) fetchDados(); }, [idAtivo, mes]);
@@ -140,10 +151,17 @@ export default function CasaDaCultura2026() {
   const lidarComUploadImagem = (e: React.ChangeEvent<HTMLInputElement>, tipo: 'prefeitura' | 'cultura') => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (tipo === 'prefeitura') setLogoPrefeituraCustom(reader.result as string);
-      else setLogoCulturaCustom(reader.result as string);
+      const base64data = reader.result as string;
+      if (tipo === 'prefeitura') {
+        setLogoPrefeituraCustom(base64data);
+        localStorage.setItem('logoPrefeitura', base64data); // Guarda permanentemente no browser
+      } else {
+        setLogoCulturaCustom(base64data);
+        localStorage.setItem('logoCultura', base64data); // Guarda permanentemente no browser
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -255,7 +273,7 @@ export default function CasaDaCultura2026() {
         }
       `}</style>
 
-      {/* PAINEL ADMINISTRATIVO (NÃO IMPRIME) */}
+      {/* PAINEL DE UPLOAD E IMPRESSÃO (FICA OCULTO NO PAPEL) */}
       <nav className="no-print bg-gray-100 border-b-4 border-black p-4 sticky top-0 z-50 shadow-md">
         <div className="flex justify-between items-center mb-4">
           <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white font-black uppercase">← VOLTAR</button>
@@ -266,7 +284,6 @@ export default function CasaDaCultura2026() {
           </div>
         </div>
 
-        {/* PAINEL DE LOGOS — upload opcional para substituir o texto padrão */}
         <div className="bg-white border-2 border-gray-300 p-3 flex flex-wrap gap-6 items-center text-xs font-sans normal-case">
           <div className="flex flex-col gap-1">
             <label className="font-bold flex items-center gap-1">
@@ -304,11 +321,7 @@ export default function CasaDaCultura2026() {
 
       <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
 
-        {/* =============================================
-            CABEÇALHO OFICIAL — idêntico ao modelo PDF
-            Padrão: texto estilizado. 
-            Upload de imagem substitui o texto se fornecido.
-        ============================================= */}
+        {/* CABEÇALHO TABELADO OFICIAL */}
         <div className="border border-black mb-1 flex items-stretch bg-white" style={{ minHeight: '110px' }}>
 
           {/* COLUNA ESQUERDA — Logo Prefeitura */}
@@ -321,9 +334,7 @@ export default function CasaDaCultura2026() {
                 className="w-auto object-contain"
               />
             ) : (
-              /* Texto estilizado que imita o logo da Prefeitura de Teixeira de Freitas */
               <div className="flex items-center gap-3">
-                {/* Ícone quadrado azul simulando o símbolo da prefeitura */}
                 <div style={{ width: 48, height: 48, background: '#1B4F8C', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <div style={{ width: 28, height: 28, border: '3px solid white', borderRadius: 2 }} />
                 </div>
@@ -336,7 +347,6 @@ export default function CasaDaCultura2026() {
             )}
           </div>
 
-          {/* DIVISOR */}
           <div style={{ width: 1, background: '#ccc', margin: '12px 0' }} />
 
           {/* COLUNA CENTRO — Secretaria */}
@@ -345,7 +355,6 @@ export default function CasaDaCultura2026() {
             <span style={{ fontSize: 14, fontWeight: 900, color: '#222', letterSpacing: '0.05em', textTransform: 'uppercase', lineHeight: 1.2 }}>CULTURA E TURISMO</span>
           </div>
 
-          {/* DIVISOR */}
           <div style={{ width: 1, background: '#ccc', margin: '12px 0' }} />
 
           {/* COLUNA DIREITA — Logo Casa da Cultura */}
@@ -358,18 +367,12 @@ export default function CasaDaCultura2026() {
                 className="w-auto object-contain"
               />
             ) : (
-              /* Texto estilizado que imita o logo da Casa da Cultura */
               <div className="flex items-center gap-3">
-                {/* Ícone colorido simulando o símbolo da Casa da Cultura */}
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                   <circle cx="24" cy="24" r="23" fill="#F0F4FF" stroke="#1B4F8C" strokeWidth="1.5"/>
-                  {/* ponto central */}
                   <circle cx="24" cy="14" r="5" fill="#1B4F8C"/>
-                  {/* arco inferior laranja */}
                   <path d="M10 34 Q24 20 38 34" stroke="#E85D04" strokeWidth="3" fill="none" strokeLinecap="round"/>
-                  {/* ponto laranja */}
                   <circle cx="24" cy="26" r="2.5" fill="#E85D04"/>
-                  {/* estrelinhas decorativas */}
                   <circle cx="14" cy="20" r="1.5" fill="#E85D04" opacity="0.7"/>
                   <circle cx="34" cy="20" r="1.5" fill="#1B4F8C" opacity="0.7"/>
                 </svg>
@@ -381,9 +384,7 @@ export default function CasaDaCultura2026() {
               </div>
             )}
           </div>
-
         </div>
-        {/* FIM DO CABEÇALHO */}
 
         {/* INFORMAÇÕES DO PROFESSOR */}
         <table className="w-full border-collapse font-sans text-xs font-bold mb-1">
