@@ -18,14 +18,14 @@ export default function CasaDaCultura2026() {
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
 
-  // NOVOS ESTADOS PARA VOCÊ ENCAIXAR AS LOGOS
+  // VARIÁVEIS PARA ENCAIXAR SUAS LOGOS
   const [usarLogoPrefeitura, setUsarLogoPrefeitura] = useState(true)
   const [logoPrefeituraCustom, setLogoPrefeituraCustom] = useState<string | null>(null)
-  const [alturaPrefeitura, setAlturaPrefeitura] = useState(48) // em pixels
+  const [alturaPrefeitura, setAlturaPrefeitura] = useState(48)
 
   const [usarLogoCultura, setUsarLogoCultura] = useState(true)
   const [logoCulturaCustom, setLogoCulturaCustom] = useState<string | null>(null)
-  const [alturaCultura, setAlturaCultura] = useState(48) // em pixels
+  const [alturaCultura, setAlturaCultura] = useState(48)
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
@@ -138,7 +138,6 @@ export default function CasaDaCultura2026() {
     fetchDadosGlobais();
   };
 
-  // Função para ler a imagem do seu computador
   const lidarComUploadImagem = (e: React.ChangeEvent<HTMLInputElement>, tipo: 'prefeitura' | 'cultura') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -151,7 +150,7 @@ export default function CasaDaCultura2026() {
     reader.readAsDataURL(file);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase text-black bg-white">CARREGANDO...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-bold text-2xl uppercase text-black bg-white">CARREGANDO...</div>;
 
   const ativosSet = new Set(todasPresencas.filter((f: any) => f.status === 'P').map((f: any) => f.aluno_id));
   const mulheres = todosAlunos.filter((a: any) => detectarGenero(a.nome) === 'F').length;
@@ -214,12 +213,9 @@ export default function CasaDaCultura2026() {
             const turmasDoDia = turmasDoProf.filter((t: any) => String(t.dias).includes(String(d)));
             if (turmasDoDia.length === 0) return null;
 
-            const nomeDia = d === 1 ? 'SEGUNDA' : d === 2 ? 'TERÇA' : d === 3 ? 'QUARTA' : d === 4 ? 'QUINTA' : 'SEXTA';
-            const corDia = d === 1 ? 'bg-blue-600' : d === 2 ? 'bg-red-600' : d === 3 ? 'bg-green-600' : d === 4 ? 'bg-yellow-500' : 'bg-purple-600';
-
             return (
               <div key={d}>
-                <h3 className={`p-3 mb-6 text-center border-4 border-black ${corDia} text-white shadow-[4px_4px_0px_#000] font-black`}>{nomeDia}</h3>
+                <h3 className="p-3 mb-6 text-center border-4 border-black bg-black text-white font-black">{d === 1 ? 'SEGUNDA' : d === 2 ? 'TERÇA' : d === 3 ? 'QUARTA' : d === 4 ? 'QUINTA' : 'SEXTA'}</h3>
                 <div className="space-y-4">
                   {turmasDoDia.map((c: any) => {
                     const n = contagemAlunos[c.id] || 0;
@@ -261,20 +257,18 @@ export default function CasaDaCultura2026() {
         }
       `}</style>
 
-      {/* PAINEL ADMINISTRATIVO NO TOPO (NÃO SAI NA IMPRESSÃO) */}
-      <nav className="no-print bg-gray-50 border-b-4 border-black p-4 sticky top-0 z-50 shadow-md">
+      {/* PAINEL ADMINISTRATIVO COM UPLOAD (FICA VISÍVEL NA FOLHA) */}
+      <nav className="no-print bg-gray-100 border-b-4 border-black p-4 sticky top-0 z-50 shadow-md">
         <div className="flex justify-between items-center mb-4">
           <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white font-black uppercase">← VOLTAR</button>
-          
           <div className="flex gap-4">
-            <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black">NOVO ALUNO +</button>
-            <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-            <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black">IMPRIMIR FOLHA</button>
+            <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-bold">NOVO ALUNO +</button>
+            <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-bold">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
+            <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-bold">IMPRIMIR FOLHA</button>
           </div>
         </div>
 
-        {/* CONTROLE DAS LOGOS */}
-        <div className="bg-white border-2 border-gray-300 p-3 rounded-md flex flex-wrap gap-6 items-center text-xs font-sans normal-case">
+        <div className="bg-white border-2 border-gray-300 p-3 flex flex-wrap gap-6 items-center text-xs font-sans normal-case">
           <div className="flex flex-col gap-1">
             <label className="font-bold flex items-center gap-1">
               <input type="checkbox" checked={usarLogoPrefeitura} onChange={e => setUsarLogoPrefeitura(e.target.checked)} /> Usar Logo Prefeitura
@@ -305,16 +299,15 @@ export default function CasaDaCultura2026() {
 
       <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
         
-        {/* CABEÇALHO TABELADO OFICIAL (Você encaixa as logos aqui) */}
+        {/* CABEÇALHO TABELADO OFICIAL */}
         <div className="border border-black mb-1 p-4 flex justify-between items-center bg-white h-[110px]">
           
-          {/* LADO DA PREFEITURA */}
           <div className="h-full flex items-center">
             {usarLogoPrefeitura ? (
               logoPrefeituraCustom ? (
                 <img src={logoPrefeituraCustom} alt="Logo Prefeitura" style={{ height: `${alturaPrefeitura}px` }} className="w-auto object-contain object-left" />
               ) : (
-                <div className="text-red-500 border border-dashed border-red-500 p-2 text-[10px] normal-case">Clique em "Escolher arquivo" no topo para subir a imagem da Prefeitura</div>
+                <div className="text-red-500 border border-dashed border-red-500 p-2 text-[10px] normal-case">Clique no "Escolher Arquivo" no topo para subir a imagem da Prefeitura</div>
               )
             ) : (
               <div className="flex flex-col justify-center">
@@ -334,7 +327,6 @@ export default function CasaDaCultura2026() {
 
           <div className="h-16 w-[1px] bg-gray-400 mx-2"></div>
 
-          {/* LADO DA CASA DA CULTURA */}
           <div className="h-full flex items-center">
             {usarLogoCultura ? (
               logoCulturaCustom ? (
@@ -428,7 +420,7 @@ export default function CasaDaCultura2026() {
                     }
                     return datas.map((dt, idx) => (
                       <td key={idx} onClick={() => alternarPresenca(i, dt)} 
-                          className={`border-r border-black text-center cursor-pointer text-base font-black select-none 
+                          className={`border-r border-black text-center cursor-pointer text-base font-bold select-none 
                           ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100 text-green-700' : 
                             presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100 text-red-700' : 
                             presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-100 text-blue-700' : ''}`}>
@@ -465,3 +457,4 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
+
