@@ -33,7 +33,7 @@ export default function CasaDaCultura2026() {
   const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
-    const final = " um ótimo mês de março — ";
+    const final = " um ótimo mês — ";
     if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária e que cada aula seja tão vibrante quanto o som dos tambores.`;
     if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias e trazendo inspiração em cada acorde.`;
     if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves e cheios de harmonia.`;
@@ -41,7 +41,7 @@ export default function CasaDaCultura2026() {
     if (o.includes("FLAUTA")) return `${base}Flauta${final}que o sopro da música renove suas energias e traga leveza à rotina.`;
     if (o.includes("VIOLÃO")) return `${base}Violão${final}que cada acorde continue espalhando inspiração e boas vibrações.`;
     if (o.includes("MUSICALIZAÇÃO")) return `${base}Musicalização${final}que a alegria da descoberta musical siga iluminando cada aula.`;
-    return "A unidade da Casa da Cultura do Jardim Europa deseja a todos um ótimo mês de março — que a arte continue transformando vidas.";
+    return "A unidade da Casa da Cultura do Jardim Europa deseja a todos um ótimo mês — que a arte continue transformando vidas.";
   };
 
   const obterLimiteOficina = (oficina: string) => {
@@ -260,18 +260,19 @@ export default function CasaDaCultura2026() {
 
       <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
         
-        {/* CABEÇALHO TABELADO ESTILO PAPEL DO PEDAGÓGICO COM A LOGO OFICIAL */}
+        {/* CABEÇALHO TABELADO OFICIAL (SVG) - NÍTIDO E NÃO QUEBRA */}
         <div className="border border-black mb-1 p-4 flex justify-between items-center bg-white h-[110px]">
-          {/* Usamos a logo que você me enviou */}
           <div className="h-full flex items-center">
-            <img 
-              src="/logo-prefeitura.png" 
-              alt="Logo Prefeitura" 
-              className="h-16 object-contain"
-            />
+            {/* Logo recriada em SVG de alta qualidade - imune a erro de quebra de imagem */}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 450 100" className="h-20 w-auto">
+              <text x="0" y="30" fill="#4B5563" fontSize="12" fontWeight="bold" fontFamily="sans-serif">PREFEITURA DE</text>
+              <text x="0" y="65" fill="#1E3A8A" fontSize="36" fontWeight="900" fontFamily="sans-serif" letterSpacing="-2">TEIXEIRA</text>
+              <text x="0" y="85" fill="#4B5563" fontSize="12" fontWeight="bold" fontFamily="sans-serif">DE FREITAS</text>
+              <line x1="200" y1="10" x2="200" y2="90" stroke="#9CA3AF" strokeWidth="2" />
+              <text x="215" y="45" fill="#4B5563" fontSize="11" fontWeight="bold" fontFamily="sans-serif">SECRETARIA DE</text>
+              <text x="215" y="65" fill="#111827" fontSize="14" fontWeight="900" fontFamily="sans-serif" letterSpacing="-1">CULTURA E TURISMO</text>
+            </svg>
           </div>
-
-          <div className="h-16 w-[1px] bg-gray-400"></div>
 
           <div className="flex flex-col text-right font-sans">
             <span className="text-2xl font-black text-gray-800 leading-none">CASA DA</span>
@@ -280,7 +281,7 @@ export default function CasaDaCultura2026() {
           </div>
         </div>
 
-        {/* INFORMAÇÕES DO PROFESSOR (AZUL CLARO DIVIDIDA IGUAL À IMAGEM) */}
+        {/* INFORMAÇÕES DO PROFESSOR (AZUL CLARO DIVIDIDA) */}
         <table className="w-full border-collapse font-sans text-xs font-bold mb-1">
           <tbody>
             <tr className="border border-black bg-[#DCE6F1]">
@@ -393,5 +394,4 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
-
 
