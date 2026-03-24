@@ -33,7 +33,7 @@ export default function CasaDaCultura2026() {
   const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
-    const final = " um ótimo mês de março — ";
+    const final = " um ótimo mês — ";
     if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária e que cada aula seja tão vibrante quanto o som dos tambores.`;
     if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias e trazendo inspiração em cada acorde.`;
     if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves e cheios de harmonia.`;
@@ -41,7 +41,7 @@ export default function CasaDaCultura2026() {
     if (o.includes("FLAUTA")) return `${base}Flauta${final}que o sopro da música renove suas energias e traga leveza à rotina.`;
     if (o.includes("VIOLÃO")) return `${base}Violão${final}que cada acorde continue espalhando inspiração e boas vibrações.`;
     if (o.includes("MUSICALIZAÇÃO")) return `${base}Musicalização${final}que a alegria da descoberta musical siga iluminando cada aula.`;
-    return "A unidade da Casa da Cultura do Jardim Europa deseja a todos um ótimo mês de março — que a arte continue transformando vidas.";
+    return "A unidade da Casa da Cultura do Jardim Europa deseja a todos um ótimo mês — que a arte continue transformando vidas.";
   };
 
   const obterLimiteOficina = (oficina: string) => {
@@ -148,7 +148,7 @@ export default function CasaDaCultura2026() {
   if (tela === 'menu') {
     const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
-      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
+      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center text-black">
         <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
         
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
@@ -192,29 +192,30 @@ export default function CasaDaCultura2026() {
 
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
+    
     return (
-      <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
+      <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase text-black">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         
-        {/* Adicionado um layout que suporta os 5 dias individuais da semana */}
+        {/* Agrupamento por blocos de aulas consolidadas (Segunda/Quarta e Terça/Quinta) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          {[1, 2, 3, 4, 5].map(d => {
-            const turmasDoDia = turmasDoProf.filter(t => String(t.dias).includes(String(d)));
-            if (turmasDoDia.length === 0) return null; // Não mostra os dias vazios
-
-            const nomeDia = d === 1 ? 'SEGUNDA' : d === 2 ? 'TERÇA' : d === 3 ? 'QUARTA' : d === 4 ? 'QUINTA' : 'SEXTA';
-            const corDia = d === 1 ? 'bg-blue-600' : d === 2 ? 'bg-red-600' : d === 3 ? 'bg-green-600' : d === 4 ? 'bg-yellow-500' : 'bg-purple-600';
+          {[
+            { id: "13", nome: "SEGUNDA E QUARTA-FEIRA", cor: "bg-blue-600" },
+            { id: "24", nome: "TERÇA E QUINTA-FEIRA", cor: "bg-red-600" }
+          ].map(grupo => {
+            const turmasDoGrupo = turmasDoProf.filter(t => String(t.dias) === grupo.id);
+            if (turmasDoGrupo.length === 0) return null;
 
             return (
-              <div key={d}>
-                <h3 className={`p-3 mb-6 text-center border-4 border-black ${corDia} text-white shadow-[4px_4px_0px_#000] font-black`}>{nomeDia}</h3>
+              <div key={grupo.id}>
+                <h3 className={`p-3 mb-6 text-center border-4 border-black ${grupo.cor} text-white shadow-[4px_4px_0px_#000] font-black`}>{grupo.nome}</h3>
                 <div className="space-y-4">
-                  {turmasDoDia.map(c => {
+                  {turmasDoGrupo.map(c => {
                     const n = contagemAlunos[c.id] || 0;
                     const limit = obterLimiteOficina(c.oficina);
                     return (
-                      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
+                      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className="bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black">
                         <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
                         <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
                       </div>
@@ -230,16 +231,15 @@ export default function CasaDaCultura2026() {
   }
 
   const curso = turmas.find(t => t.id === idAtivo);
+  const diasRaw = String(curso?.dias);
   
-  // Detecção dinâmica de qual dia da semana a turma pertence
-  const diasTexto = String(curso?.dias).includes('1') ? "SEGUNDA-FEIRA" : 
-                    String(curso?.dias).includes('2') ? "TERÇA-FEIRA" : 
-                    String(curso?.dias).includes('3') ? "QUARTA-FEIRA" : 
-                    String(curso?.dias).includes('4') ? "QUINTA-FEIRA" : 
-                    String(curso?.dias).includes('5') ? "SEXTA-FEIRA" : "DIAS VARIADOS";
-  
+  // Tratamento dos dias da semana juntos
+  let diasTexto = "DIAS VARIADOS";
+  if (diasRaw === "13") diasTexto = "SEGUNDA E QUARTA-FEIRA";
+  else if (diasRaw === "24") diasTexto = "TERÇA E QUINTA-FEIRA";
+
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white">
+    <div className="min-h-screen italic font-black uppercase bg-white text-black">
       <title>CASA DA CULTURA 2026</title>
       <style jsx global>{`
         @media print {
@@ -284,7 +284,6 @@ export default function CasaDaCultura2026() {
               <th className="border-2 border-black p-2 text-left min-w-[280px]">NOME DO ALUNO</th>
               <th className="border-2 border-black p-2 text-left w-36 no-print">CONTATO</th>
               {(() => {
-                // Suporta 1, 2, 3, 4 ou 5 para turmas unitárias
                 const diasAlvo = String(curso?.dias).split('').map(Number);
                 const datas = [];
                 const ultimoDia = new Date(2026, mes + 1, 0).getDate();
