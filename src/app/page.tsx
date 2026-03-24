@@ -18,7 +18,6 @@ export default function CasaDaCultura2026() {
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
 
-  // VARIÁVEIS PARA ENCAIXAR SUAS LOGOS
   const [usarLogoPrefeitura, setUsarLogoPrefeitura] = useState(true)
   const [logoPrefeituraCustom, setLogoPrefeituraCustom] = useState<string | null>(null)
   const [alturaPrefeitura, setAlturaPrefeitura] = useState(48)
@@ -141,7 +140,6 @@ export default function CasaDaCultura2026() {
   const lidarComUploadImagem = (e: React.ChangeEvent<HTMLInputElement>, tipo: 'prefeitura' | 'cultura') => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onloadend = () => {
       if (tipo === 'prefeitura') setLogoPrefeituraCustom(reader.result as string);
@@ -257,7 +255,7 @@ export default function CasaDaCultura2026() {
         }
       `}</style>
 
-      {/* PAINEL ADMINISTRATIVO COM UPLOAD (FICA VISÍVEL NA FOLHA) */}
+      {/* PAINEL ADMINISTRATIVO (NÃO IMPRIME) */}
       <nav className="no-print bg-gray-100 border-b-4 border-black p-4 sticky top-0 z-50 shadow-md">
         <div className="flex justify-between items-center mb-4">
           <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white font-black uppercase">← VOLTAR</button>
@@ -268,83 +266,126 @@ export default function CasaDaCultura2026() {
           </div>
         </div>
 
+        {/* PAINEL DE LOGOS — upload opcional para substituir o texto padrão */}
         <div className="bg-white border-2 border-gray-300 p-3 flex flex-wrap gap-6 items-center text-xs font-sans normal-case">
           <div className="flex flex-col gap-1">
             <label className="font-bold flex items-center gap-1">
-              <input type="checkbox" checked={usarLogoPrefeitura} onChange={e => setUsarLogoPrefeitura(e.target.checked)} /> Usar Logo Prefeitura
+              <input type="checkbox" checked={usarLogoPrefeitura} onChange={e => setUsarLogoPrefeitura(e.target.checked)} />
+              Substituir logo Prefeitura por imagem
             </label>
             <input type="file" accept="image/*" disabled={!usarLogoPrefeitura} onChange={e => lidarComUploadImagem(e, 'prefeitura')} className="text-[10px]" />
-            <div className="flex items-center gap-1">
-              <span className="text-[10px]">Altura (px):</span>
-              <input type="range" min="20" max="100" value={alturaPrefeitura} onChange={e => setAlturaPrefeitura(Number(e.target.value))} />
-              <span className="text-[10px]">{alturaPrefeitura}px</span>
-            </div>
+            {usarLogoPrefeitura && logoPrefeituraCustom && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px]">Altura (px):</span>
+                <input type="range" min="20" max="100" value={alturaPrefeitura} onChange={e => setAlturaPrefeitura(Number(e.target.value))} />
+                <span className="text-[10px]">{alturaPrefeitura}px</span>
+              </div>
+            )}
           </div>
 
           <div className="h-10 w-[1px] bg-gray-300"></div>
 
           <div className="flex flex-col gap-1">
             <label className="font-bold flex items-center gap-1">
-              <input type="checkbox" checked={usarLogoCultura} onChange={e => setUsarLogoCultura(e.target.checked)} /> Usar Logo Casa Cultura
+              <input type="checkbox" checked={usarLogoCultura} onChange={e => setUsarLogoCultura(e.target.checked)} />
+              Substituir logo Casa da Cultura por imagem
             </label>
             <input type="file" accept="image/*" disabled={!usarLogoCultura} onChange={e => lidarComUploadImagem(e, 'cultura')} className="text-[10px]" />
-            <div className="flex items-center gap-1">
-              <span className="text-[10px]">Altura (px):</span>
-              <input type="range" min="20" max="100" value={alturaCultura} onChange={e => setAlturaCultura(Number(e.target.value))} />
-              <span className="text-[10px]">{alturaCultura}px</span>
-            </div>
+            {usarLogoCultura && logoCulturaCustom && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px]">Altura (px):</span>
+                <input type="range" min="20" max="100" value={alturaCultura} onChange={e => setAlturaCultura(Number(e.target.value))} />
+                <span className="text-[10px]">{alturaCultura}px</span>
+              </div>
+            )}
           </div>
         </div>
       </nav>
 
       <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
-        
-        {/* CABEÇALHO TABELADO OFICIAL */}
-        <div className="border border-black mb-1 p-4 flex justify-between items-center bg-white h-[110px]">
-          
-          <div className="h-full flex items-center">
-            {usarLogoPrefeitura ? (
-              logoPrefeituraCustom ? (
-                <img src={logoPrefeituraCustom} alt="Logo Prefeitura" style={{ height: `${alturaPrefeitura}px` }} className="w-auto object-contain object-left" />
-              ) : (
-                <div className="text-red-500 border border-dashed border-red-500 p-2 text-[10px] normal-case">Clique no "Escolher Arquivo" no topo para subir a imagem da Prefeitura</div>
-              )
+
+        {/* =============================================
+            CABEÇALHO OFICIAL — idêntico ao modelo PDF
+            Padrão: texto estilizado. 
+            Upload de imagem substitui o texto se fornecido.
+        ============================================= */}
+        <div className="border border-black mb-1 flex items-stretch bg-white" style={{ minHeight: '110px' }}>
+
+          {/* COLUNA ESQUERDA — Logo Prefeitura */}
+          <div className="flex items-center justify-center px-6 py-3" style={{ minWidth: '200px' }}>
+            {usarLogoPrefeitura && logoPrefeituraCustom ? (
+              <img
+                src={logoPrefeituraCustom}
+                alt="Logo Prefeitura"
+                style={{ height: `${alturaPrefeitura}px` }}
+                className="w-auto object-contain"
+              />
             ) : (
-              <div className="flex flex-col justify-center">
-                <span className="text-[11px] font-bold text-gray-600 leading-none mb-1">PREFEITURA DE</span>
-                <span className="text-3xl font-black text-blue-900 leading-none tracking-tighter">TEIXEIRA</span>
-                <span className="text-[11px] font-bold text-gray-600 leading-none mt-1">DE FREITAS</span>
+              /* Texto estilizado que imita o logo da Prefeitura de Teixeira de Freitas */
+              <div className="flex items-center gap-3">
+                {/* Ícone quadrado azul simulando o símbolo da prefeitura */}
+                <div style={{ width: 48, height: 48, background: '#1B4F8C', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 28, height: 28, border: '3px solid white', borderRadius: 2 }} />
+                </div>
+                <div className="flex flex-col leading-none">
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>PREFEITURA DE</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#1B4F8C', lineHeight: 1, letterSpacing: '-0.03em', textTransform: 'uppercase' }}>TEIXEIRA</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#1B4F8C', lineHeight: 1, letterSpacing: '-0.03em', textTransform: 'uppercase' }}>DE FREITAS</span>
+                </div>
               </div>
             )}
           </div>
 
-          <div className="h-16 w-[1px] bg-gray-400 mx-2"></div>
+          {/* DIVISOR */}
+          <div style={{ width: 1, background: '#ccc', margin: '12px 0' }} />
 
-          <div className="flex flex-col justify-center font-sans">
-            <span className="text-[11px] font-bold text-gray-600 leading-none mb-1">SECRETARIA DE</span>
-            <span className="text-sm font-black text-gray-800 leading-none tracking-tight">CULTURA E TURISMO</span>
+          {/* COLUNA CENTRO — Secretaria */}
+          <div className="flex flex-col items-center justify-center px-6 py-3 flex-1">
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#666', letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1.2 }}>SECRETARIA DE</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#222', letterSpacing: '0.05em', textTransform: 'uppercase', lineHeight: 1.2 }}>CULTURA E TURISMO</span>
           </div>
 
-          <div className="h-16 w-[1px] bg-gray-400 mx-2"></div>
+          {/* DIVISOR */}
+          <div style={{ width: 1, background: '#ccc', margin: '12px 0' }} />
 
-          <div className="h-full flex items-center">
-            {usarLogoCultura ? (
-              logoCulturaCustom ? (
-                <img src={logoCulturaCustom} alt="Logo Casa Cultura" style={{ height: `${alturaCultura}px` }} className="w-auto object-contain object-right" />
-              ) : (
-                <div className="text-red-500 border border-dashed border-red-500 p-2 text-[10px] normal-case">Suba a imagem da Casa da Cultura no topo</div>
-              )
+          {/* COLUNA DIREITA — Logo Casa da Cultura */}
+          <div className="flex items-center justify-center px-6 py-3" style={{ minWidth: '200px' }}>
+            {usarLogoCultura && logoCulturaCustom ? (
+              <img
+                src={logoCulturaCustom}
+                alt="Logo Casa da Cultura"
+                style={{ height: `${alturaCultura}px` }}
+                className="w-auto object-contain"
+              />
             ) : (
-              <div className="flex flex-col text-right justify-center h-full">
-                <span className="text-2xl font-black text-gray-800 leading-none">CASA DA</span>
-                <span className="text-2xl font-black text-blue-600 leading-none">CULTURA</span>
-                <span className="text-[10px] font-bold text-gray-500 mt-1">JARDIM EUROPA</span>
+              /* Texto estilizado que imita o logo da Casa da Cultura */
+              <div className="flex items-center gap-3">
+                {/* Ícone colorido simulando o símbolo da Casa da Cultura */}
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                  <circle cx="24" cy="24" r="23" fill="#F0F4FF" stroke="#1B4F8C" strokeWidth="1.5"/>
+                  {/* ponto central */}
+                  <circle cx="24" cy="14" r="5" fill="#1B4F8C"/>
+                  {/* arco inferior laranja */}
+                  <path d="M10 34 Q24 20 38 34" stroke="#E85D04" strokeWidth="3" fill="none" strokeLinecap="round"/>
+                  {/* ponto laranja */}
+                  <circle cx="24" cy="26" r="2.5" fill="#E85D04"/>
+                  {/* estrelinhas decorativas */}
+                  <circle cx="14" cy="20" r="1.5" fill="#E85D04" opacity="0.7"/>
+                  <circle cx="34" cy="20" r="1.5" fill="#1B4F8C" opacity="0.7"/>
+                </svg>
+                <div className="flex flex-col leading-none">
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#222', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>CASA DA</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#1B4F8C', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>CULTURA</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#888', marginTop: 2, letterSpacing: '0.1em', textTransform: 'uppercase' }}>JARDIM EUROPA</span>
+                </div>
               </div>
             )}
           </div>
+
         </div>
+        {/* FIM DO CABEÇALHO */}
 
-        {/* INFORMAÇÕES DO PROFESSOR (FUNDO AZUL CLARO) */}
+        {/* INFORMAÇÕES DO PROFESSOR */}
         <table className="w-full border-collapse font-sans text-xs font-bold mb-1">
           <tbody>
             <tr className="border border-black bg-[#DCE6F1]">
@@ -438,7 +479,7 @@ export default function CasaDaCultura2026() {
           </tbody>
         </table>
 
-        {/* RODAPÉ DO PEDAGÓGICO */}
+        {/* RODAPÉ */}
         <footer className="mt-8 flex flex-col gap-8 font-sans font-bold">
           <div className="flex justify-between items-center italic">
             <p className="text-[10px] font-bold max-w-[65%] border-l-4 border-black pl-4 leading-relaxed uppercase text-gray-500">
@@ -457,4 +498,3 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
-
