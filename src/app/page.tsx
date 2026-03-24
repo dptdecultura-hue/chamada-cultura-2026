@@ -91,16 +91,6 @@ export default function CasaDaCultura2026() {
     setPresencas(gridPre);
   }
 
-  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
-    if (!novaTurmaId) return;
-    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
-    if (!error) {
-        setAlunosLocais(alunosLocais.filter((a: any) => a.id !== alunoId));
-        fetchTurmas(); fetchDadosGlobais();
-        alert("ALUNO TRANSFERIDO!");
-    }
-  };
-
   const salvarAlunoNoBanco = async (index: number) => {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return null;
@@ -148,8 +138,8 @@ export default function CasaDaCultura2026() {
   if (tela === 'menu') {
     const listaProfessores = [...new Set(turmas.map((t: any) => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
-      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
+      <div className="min-h-screen p-8 bg-[#F8FAFC] font-sans font-bold uppercase text-center">
+        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
         
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
@@ -181,7 +171,7 @@ export default function CasaDaCultura2026() {
             return (
               <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black">
                 {p}
-                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalAlunos} ALUNOS</span>
+                <span className="text-[10px] text-blue-600 mt-2 font-bold">{totalAlunos} ALUNOS</span>
               </button>
             )
           })}
@@ -193,9 +183,9 @@ export default function CasaDaCultura2026() {
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter((t: any) => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
-      <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
-        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
+      <div className="min-h-screen p-8 max-w-6xl mx-auto font-sans font-bold uppercase">
+        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 bg-gray-50 uppercase">← VOLTAR</button>
+        <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2, 3, 4, 5].map(d => {
@@ -214,8 +204,8 @@ export default function CasaDaCultura2026() {
                     const limit = obterLimiteOficina(c.oficina);
                     return (
                       <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
-                        <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                        <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
+                        <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold">{c.oficina}</span></div>
+                        <div className="text-right font-black"><span className="text-lg">{n} / {limit}</span></div>
                       </div>
                     )
                   })}
@@ -260,19 +250,18 @@ export default function CasaDaCultura2026() {
 
       <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
         
-        {/* CABEÇALHO TABELADO OFICIAL (SVG) - NÍTIDO E NÃO QUEBRA */}
+        {/* CABEÇALHO TABELADO OFICIAL (Corrigido para não cortar imagem) */}
         <div className="border border-black mb-1 p-4 flex justify-between items-center bg-white h-[110px]">
           <div className="h-full flex items-center">
-            {/* Logo recriada em SVG de alta qualidade - imune a erro de quebra de imagem */}
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 450 100" className="h-20 w-auto">
-              <text x="0" y="30" fill="#4B5563" fontSize="12" fontWeight="bold" fontFamily="sans-serif">PREFEITURA DE</text>
-              <text x="0" y="65" fill="#1E3A8A" fontSize="36" fontWeight="900" fontFamily="sans-serif" letterSpacing="-2">TEIXEIRA</text>
-              <text x="0" y="85" fill="#4B5563" fontSize="12" fontWeight="bold" fontFamily="sans-serif">DE FREITAS</text>
-              <line x1="200" y1="10" x2="200" y2="90" stroke="#9CA3AF" strokeWidth="2" />
-              <text x="215" y="45" fill="#4B5563" fontSize="11" fontWeight="bold" fontFamily="sans-serif">SECRETARIA DE</text>
-              <text x="215" y="65" fill="#111827" fontSize="14" fontWeight="900" fontFamily="sans-serif" letterSpacing="-1">CULTURA E TURISMO</text>
-            </svg>
+            {/* Altura de 12 unidades (h-12), largura dinâmica (w-auto) e encaixado no canto esquerdo */}
+            <img 
+              src="/logo-prefeitura.png" 
+              alt="Logo Prefeitura" 
+              className="h-12 w-auto object-contain object-left"
+            />
           </div>
+
+          <div className="h-16 w-[1px] bg-gray-400"></div>
 
           <div className="flex flex-col text-right font-sans">
             <span className="text-2xl font-black text-gray-800 leading-none">CASA DA</span>
@@ -281,7 +270,7 @@ export default function CasaDaCultura2026() {
           </div>
         </div>
 
-        {/* INFORMAÇÕES DO PROFESSOR (AZUL CLARO DIVIDIDA) */}
+        {/* INFORMAÇÕES DO PROFESSOR (FUNDO AZUL CLARO) */}
         <table className="w-full border-collapse font-sans text-xs font-bold mb-1">
           <tbody>
             <tr className="border border-black bg-[#DCE6F1]">
@@ -394,4 +383,3 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
-
