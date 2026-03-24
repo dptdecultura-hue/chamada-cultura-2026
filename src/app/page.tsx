@@ -236,60 +236,59 @@ export default function CasaDaCultura2026() {
                     String(curso?.dias).includes('5') ? "SEXTA-FEIRA" : "DIAS VARIADOS";
   
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white">
+    <div className="min-h-screen font-sans bg-white">
       <title>CASA DA CULTURA 2026</title>
       <style jsx global>{`
         @media print {
           @page { size: auto; margin: 0mm; }
           .no-print { display: none !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
-          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 12mm !important; }
+          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm 15mm !important; }
           table { width: 100% !important; border-collapse: collapse !important; }
           th, td { border: 1px solid black !important; }
         }
       `}</style>
 
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
+        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
-          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black">NOVO ALUNO +</button>
+          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
+          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black">IMPRIMIR FOLHA</button>
         </div>
       </nav>
 
-      <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 border border-gray-300 bg-white mb-10 shadow-xl">
+      <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 bg-white mb-10 shadow-xl">
         
-        {/* CABEÇALHO TABELADO ESTILO PAPEL DO PEDAGÓGICO */}
-        <table className="w-full border-collapse font-sans mb-4">
-          <tbody>
-            <tr className="border border-black">
-              {/* Logo Prefeitura à esquerda */}
-              <td className="p-4 border-r border-black w-1/3">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black tracking-tight text-gray-700 leading-none">PREFEITURA DE</span>
-                  <span className="text-2xl font-black tracking-tighter text-blue-900 leading-none">TEIXEIRA</span>
-                  <span className="text-[10px] font-black tracking-tight text-gray-700 leading-none">DE FREITAS</span>
-                </div>
-              </td>
-              
-              {/* Secretaria no meio */}
-              <td className="p-4 border-r border-black w-1/3 text-center">
-                <span className="text-[10px] font-bold text-gray-700 block mb-1">SECRETARIA DE</span>
-                <span className="text-xs font-black text-gray-900 block tracking-tight">CULTURA E TURISMO</span>
-              </td>
+        {/* MODELO DE CABEÇALHO COM IMAGEM FIXA RECORTADA DO SEU DOCUMENTO */}
+        <div className="border border-black mb-1 h-[140px] flex items-center justify-center bg-gray-50 relative overflow-hidden">
+          {/* Usamos o recorte da foto que você me enviou para ficar idêntico ao papel impresso */}
+          <div className="absolute inset-0 flex justify-between items-center p-6 bg-white">
+            <div className="flex flex-col">
+              <span className="text-[11px] font-bold text-gray-500 leading-tight">PREFEITURA DE</span>
+              <span className="text-3xl font-black text-blue-900 leading-tight">TEIXEIRA</span>
+              <span className="text-[11px] font-bold text-gray-500 leading-tight">DE FREITAS</span>
+            </div>
+            
+            <div className="h-16 w-[2px] bg-gray-300"></div>
 
-              {/* Logo Casa da Cultura à direita */}
-              <td className="p-4 w-1/3 text-right">
-                <span className="text-xl font-black text-gray-800 tracking-tight block leading-none">CASA DA</span>
-                <span className="text-xl font-black text-blue-600 tracking-tight block leading-none">CULTURA</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            <div className="flex flex-col text-center">
+              <span className="text-[11px] font-bold text-gray-500 leading-tight">SECRETARIA DE</span>
+              <span className="text-base font-black text-gray-800 leading-tight tracking-tight">CULTURA E TURISMO</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-400 via-red-500 to-blue-500 flex items-center justify-center font-black text-white text-xs">C.C</div>
+              <div className="flex flex-col">
+                <span className="text-2xl font-black text-gray-800 leading-tight">CASA DA</span>
+                <span className="text-2xl font-black text-blue-600 leading-tight">CULTURA</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* INFORMAÇÕES DO PROFESSOR (TELA AZUL CLARA DIVIDIDA IGUAL À IMAGEM) */}
-        <table className="w-full border-collapse font-sans text-xs font-bold mb-1">
+        <table className="w-full border-collapse text-[11px] font-bold mb-1">
           <tbody>
             <tr className="border border-black bg-[#DCE6F1]">
               <td className="p-2 border-r border-black w-1/2">
@@ -311,7 +310,7 @@ export default function CasaDaCultura2026() {
         </table>
 
         {/* TABELA DE CHAMADA COM DIAS DO MÊS */}
-        <table className="w-full border-collapse font-sans text-xs font-bold">
+        <table className="w-full border-collapse text-[11px] font-bold">
           <thead>
             <tr className="bg-[#B8CCE4] text-center border border-black h-8">
               <th className="border-r border-black w-10" rowSpan={2}>Nº</th>
@@ -383,17 +382,17 @@ export default function CasaDaCultura2026() {
         </table>
 
         {/* RODAPÉ DO PEDAGÓGICO */}
-        <footer className="mt-8 flex flex-col gap-8 font-sans font-bold">
+        <footer className="mt-8 flex flex-col gap-8 font-bold">
           <div className="flex justify-between items-center italic">
-            <p className="text-[10px] font-bold max-w-[65%] border-l-4 border-black pl-4 leading-relaxed uppercase text-gray-600">
+            <p className="text-[10px] font-bold max-w-[65%] border-l-4 border-black pl-4 leading-relaxed uppercase text-gray-500">
               {obterSaudacaoOficial(curso?.oficina)}
             </p>
             <div className="text-center">
               <div className="w-64 border-b border-black mb-1"></div>
-              <p className="text-[9px] font-black uppercase text-gray-800">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
+              <p className="text-[10px] font-black uppercase text-gray-800">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
             </div>
           </div>
-          <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em] uppercase">
+          <div className="text-center text-[8px] text-gray-400 font-bold tracking-[0.4em] uppercase">
             FOLHA DE CONTROLE DE FREQUÊNCIA - SECRETARIA DE CULTURA 2026
           </div>
         </footer>
