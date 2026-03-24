@@ -244,7 +244,7 @@ export default function CasaDaCultura2026() {
           .no-print { display: none !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
           .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 12mm !important; }
-          table { width: 100% !important; border: 1px solid black !important; }
+          table { width: 100% !important; border-collapse: collapse !important; }
           th, td { border: 1px solid black !important; }
         }
       `}</style>
@@ -258,43 +258,64 @@ export default function CasaDaCultura2026() {
         </div>
       </nav>
 
-      {/* NOVO LAYOUT DO SETOR PEDAGÓGICO APLICADO */}
-      <div className="folha-container max-w-[1300px] mx-auto p-10 mt-4 border-4 border-black bg-white mb-10 shadow-2xl">
+      <div className="folha-container max-w-[1200px] mx-auto p-12 mt-4 border border-gray-300 bg-white mb-10 shadow-xl">
         
-        <div className="border-2 border-slate-400 mb-4 p-4 flex justify-between items-center font-sans no-print-border">
-          <div className="flex items-center gap-6">
-            <div>
-              <h2 className="text-xs font-black text-slate-700 tracking-tighter uppercase leading-none">Prefeitura de</h2>
-              <h1 className="text-2xl font-black text-blue-900 tracking-tighter uppercase leading-none">Teixeira</h1>
-              <h2 className="text-xs font-black text-slate-700 uppercase leading-none">de Freitas</h2>
-            </div>
-            <div className="h-12 w-[2px] bg-slate-300"></div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-600 uppercase leading-tight">Secretaria de</p>
-              <p className="text-xs font-black text-slate-800 uppercase leading-tight">Cultura e Turismo</p>
-            </div>
-          </div>
+        {/* CABEÇALHO TABELADO ESTILO PAPEL DO PEDAGÓGICO */}
+        <table className="w-full border-collapse font-sans mb-4">
+          <tbody>
+            <tr className="border border-black">
+              {/* Logo Prefeitura à esquerda */}
+              <td className="p-4 border-r border-black w-1/3">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black tracking-tight text-gray-700 leading-none">PREFEITURA DE</span>
+                  <span className="text-2xl font-black tracking-tighter text-blue-900 leading-none">TEIXEIRA</span>
+                  <span className="text-[10px] font-black tracking-tight text-gray-700 leading-none">DE FREITAS</span>
+                </div>
+              </td>
+              
+              {/* Secretaria no meio */}
+              <td className="p-4 border-r border-black w-1/3 text-center">
+                <span className="text-[10px] font-bold text-gray-700 block mb-1">SECRETARIA DE</span>
+                <span className="text-xs font-black text-gray-900 block tracking-tight">CULTURA E TURISMO</span>
+              </td>
 
-          <div className="flex items-center gap-2">
-            <div className="text-right">
-              <h1 className="text-xl font-black text-slate-800 tracking-tight uppercase leading-none">Casa da</h1>
-              <h1 className="text-xl font-black text-blue-600 tracking-tight uppercase leading-none">Cultura</h1>
-            </div>
-          </div>
-        </div>
+              {/* Logo Casa da Cultura à direita */}
+              <td className="p-4 w-1/3 text-right">
+                <span className="text-xl font-black text-gray-800 tracking-tight block leading-none">CASA DA</span>
+                <span className="text-xl font-black text-blue-600 tracking-tight block leading-none">CULTURA</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        <div className="grid grid-cols-2 border-2 border-slate-400 bg-[#D9E2EC] font-sans mb-1 text-xs font-bold">
-          <div className="p-2 border-r border-b border-slate-400">Oficineiro (a) / Professor (a): <span className="uppercase font-black text-slate-800">{curso?.professor}</span></div>
-          <div className="p-2 border-b border-slate-400">Curso: <span className="uppercase font-black text-slate-800">{curso?.oficina}</span></div>
-          <div className="p-2 border-r border-slate-400">Dias da Semana: <span className="uppercase font-black text-slate-800">{diasTexto}</span></div>
-          <div className="p-2">Horário: <span className="uppercase font-black text-slate-800">{curso?.horario}</span></div>
-        </div>
+        {/* INFORMAÇÕES DO PROFESSOR (TELA AZUL CLARA DIVIDIDA IGUAL À IMAGEM) */}
+        <table className="w-full border-collapse font-sans text-xs font-bold mb-1">
+          <tbody>
+            <tr className="border border-black bg-[#DCE6F1]">
+              <td className="p-2 border-r border-black w-1/2">
+                OFICINEIRO (A) / PROFESSOR (A): <span className="font-black text-gray-900">{curso?.professor}</span>
+              </td>
+              <td className="p-2 w-1/2">
+                CURSO: <span className="font-black text-gray-900">{curso?.oficina}</span>
+              </td>
+            </tr>
+            <tr className="border border-black bg-[#DCE6F1]">
+              <td className="p-2 border-r border-black w-1/2">
+                DIAS DA SEMANA: <span className="font-black text-gray-900">{diasTexto}</span>
+              </td>
+              <td className="p-2 w-1/2">
+                HORÁRIO: <span className="font-black text-gray-900">{curso?.horario}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        <table className="w-full border-collapse border-2 border-slate-400 font-sans text-xs font-bold uppercase">
+        {/* TABELA DE CHAMADA COM DIAS DO MÊS */}
+        <table className="w-full border-collapse font-sans text-xs font-bold">
           <thead>
-            <tr className="bg-[#B0C4DE] text-center h-8">
-              <th className="border border-slate-400 w-12" rowSpan={2}>Nº</th>
-              <th className="border border-slate-400 p-2 text-left min-w-[300px]" rowSpan={2}>Nomes do Aluno</th>
+            <tr className="bg-[#B8CCE4] text-center border border-black h-8">
+              <th className="border-r border-black w-10" rowSpan={2}>Nº</th>
+              <th className="border-r border-black p-2 text-left min-w-[300px]" rowSpan={2}>NOME DO ALUNO</th>
               {(() => {
                 const diasAlvo = String(curso?.dias).split('').map(Number);
                 const datas = [];
@@ -303,12 +324,12 @@ export default function CasaDaCultura2026() {
                   const dataProd = new Date(2026, mes, d);
                   if (diasAlvo.includes(dataProd.getDay())) datas.push(d);
                 }
-                return <th className="border border-slate-400 h-6" colSpan={datas.length}>{mesesNomes[mes]}</th>;
+                return <th className="border-r border-black h-5" colSpan={datas.length}>{mesesNomes[mes]}</th>;
               })()}
-              <th className="border border-slate-400 w-12 no-print" rowSpan={2}>Faltas</th>
-              <th className="border border-slate-400 w-10 no-print" rowSpan={2}></th>
+              <th className="border-r border-black w-12 no-print" rowSpan={2}>FALTAS</th>
+              <th className="w-10 no-print" rowSpan={2}>X</th>
             </tr>
-            <tr className="bg-[#D9E2EC] text-center h-8">
+            <tr className="bg-[#DCE6F1] text-center border border-black h-8">
               {(() => {
                 const diasAlvo = String(curso?.dias).split('').map(Number);
                 const datas: any[] = [];
@@ -317,7 +338,7 @@ export default function CasaDaCultura2026() {
                   const dataProd = new Date(2026, mes, d);
                   if (diasAlvo.includes(dataProd.getDay())) datas.push(d < 10 ? `0${d}` : d);
                 }
-                return datas.map(dt => <th key={dt} className="border border-slate-400 w-10 text-[10px]">{dt}</th>);
+                return datas.map(dt => <th key={dt} className="border-r border-black w-10 text-[10px]">{dt}</th>);
               })()}
             </tr>
           </thead>
@@ -325,10 +346,10 @@ export default function CasaDaCultura2026() {
             {alunosLocais.map((aluno, i) => {
               const f = Object.values(presencas[aluno.id] || {}).filter(v => v === "F").length;
               return (
-                <tr key={aluno.id || `temp-${i}`} className="border-b border-slate-400 h-8">
-                  <td className="border-r border-slate-400 text-center text-xs">{i+1}</td>
-                  <td className="border-r border-slate-400 px-2">
-                    <input className={`w-full bg-transparent outline-none font-bold text-xs uppercase ${f >= 3 ? 'text-red-600 underline' : 'text-slate-800'}`} 
+                <tr key={aluno.id || `temp-${i}`} className="border border-black h-8">
+                  <td className="border-r border-black text-center text-xs">{i+1}</td>
+                  <td className="border-r border-black px-2">
+                    <input className={`w-full bg-transparent outline-none font-bold text-xs uppercase ${f >= 3 ? 'text-red-600 underline' : 'text-gray-800'}`} 
                            value={aluno.nome || ""} 
                            onChange={(e) => { const n = [...alunosLocais]; n[i].nome = e.target.value.toUpperCase(); setAlunosLocais(n); }} 
                            onBlur={() => salvarAlunoNoBanco(i)} />
@@ -343,7 +364,7 @@ export default function CasaDaCultura2026() {
                     }
                     return datas.map(dt => (
                       <td key={dt} onClick={() => alternarPresenca(i, dt)} 
-                          className={`border-r border-slate-400 text-center cursor-pointer text-base font-black select-none 
+                          className={`border-r border-black text-center cursor-pointer text-base font-black select-none 
                           ${presencas[aluno.id]?.[dt] === 'P' ? 'bg-green-100 text-green-700' : 
                             presencas[aluno.id]?.[dt] === 'F' ? 'bg-red-100 text-red-700' : 
                             presencas[aluno.id]?.[dt] === 'J' ? 'bg-blue-100 text-blue-700' : ''}`}>
@@ -351,9 +372,9 @@ export default function CasaDaCultura2026() {
                       </td>
                     ));
                   })()}
-                  <td className="border-r border-slate-400 text-center text-sm no-print">{f}</td>
+                  <td className="border-r border-black text-center text-sm no-print">{f}</td>
                   <td className="text-center no-print">
-                    <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); fetchDadosGlobais(); }}} className="text-slate-300 hover:text-red-600 font-bold text-xs">X</button>
+                    <button onClick={async () => { if(confirm("EXCLUIR?")) { await supabase.from('frequencia').delete().eq('aluno_id', aluno.id); await supabase.from('alunos').delete().eq('id', aluno.id); fetchDados(); fetchDadosGlobais(); }}} className="text-gray-300 hover:text-red-600 font-bold text-xs">X</button>
                   </td>
                 </tr>
               )
@@ -361,17 +382,18 @@ export default function CasaDaCultura2026() {
           </tbody>
         </table>
 
-        <footer className="mt-8 flex flex-col gap-8 uppercase font-bold font-sans">
+        {/* RODAPÉ DO PEDAGÓGICO */}
+        <footer className="mt-8 flex flex-col gap-8 font-sans font-bold">
           <div className="flex justify-between items-center italic">
-            <p className="text-[10px] font-bold max-w-[65%] border-l-4 border-slate-400 pl-4 leading-relaxed uppercase text-slate-600">
+            <p className="text-[10px] font-bold max-w-[65%] border-l-4 border-black pl-4 leading-relaxed uppercase text-gray-600">
               {obterSaudacaoOficial(curso?.oficina)}
             </p>
             <div className="text-center">
-              <div className="w-64 border-b-2 border-slate-800 mb-1"></div>
-              <p className="text-[9px] font-black tracking-tighter uppercase text-slate-800">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
+              <div className="w-64 border-b border-black mb-1"></div>
+              <p className="text-[9px] font-black uppercase text-gray-800">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
             </div>
           </div>
-          <div className="text-center text-[7px] text-slate-400 font-bold tracking-[0.4em] uppercase">
+          <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em] uppercase">
             FOLHA DE CONTROLE DE FREQUÊNCIA - SECRETARIA DE CULTURA 2026
           </div>
         </footer>
