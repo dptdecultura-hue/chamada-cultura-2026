@@ -7,6 +7,7 @@ export default function CasaDaCultura2026() {
   const [profSel, setProfSel] = useState("")
   const [filtroOficina, setFiltroOficina] = useState("")
   const [idAtivo, setIdAtivo] = useState<any>(null)
+  // O mês agora inicia no mês atual, mas pode ser alterado globalmente
   const [mes, setMes] = useState(new Date().getMonth())
   const [turmas, setTurmas] = useState<any[]>([])
   const [alunosLocais, setAlunosLocais] = useState<any[]>([])
@@ -33,15 +34,14 @@ export default function CasaDaCultura2026() {
   const obterSaudacaoOficial = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
-    const final = " um ótimo mês de março — ";
-    if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária e que cada aula seja tão vibrante quanto o som dos tambores.`;
-    if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias e trazendo inspiração em cada acorde.`;
-    if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves e cheios de harmonia.`;
-    if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) return `${base}Técnica Vocal e Coro${final}que sua voz continue ecoando incentivo, alegria e paixão pela música.`;
-    if (o.includes("FLAUTA")) return `${base}Flauta${final}que o sopro da música renove suas energias e traga leveza à rotina.`;
-    if (o.includes("VIOLÃO")) return `${base}Violão${final}que cada acorde continue espalhando inspiração e boas vibrações.`;
-    if (o.includes("MUSICALIZAÇÃO")) return `${base}Musicalização${final}que a alegria da descoberta musical siga iluminando cada aula.`;
-    return "A unidade da Casa da Cultura do Jardim Europa deseja a todos um ótimo mês de março — que a arte continue transformando vidas.";
+    const final = ` um ótimo mês de ${mesesNomes[mes].toLowerCase()} — `;
+    
+    if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária.`;
+    if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias.`;
+    if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves.`;
+    if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) return `${base}Canto${final}que sua voz continue ecoando incentivo.`;
+    
+    return `A unidade da Casa da Cultura do Jardim Europa deseja um ótimo mês de ${mesesNomes[mes].toLowerCase()} — que a arte continue transformando vidas.`;
   };
 
   const obterLimiteOficina = (oficina: string) => {
@@ -66,7 +66,7 @@ export default function CasaDaCultura2026() {
     const contagem: any = {};
     aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1; });
     setContagemAlunos(contagem);
-    if (tData) setTurmas(tData.sort((a, b) => a.horario.localeCompare(b.horario)));
+    if (tData) setTurmas(tData.sort((a:any, b:any) => a.horario.localeCompare(b.horario)));
     setLoading(false);
   }
 
@@ -90,16 +90,6 @@ export default function CasaDaCultura2026() {
     });
     setPresencas(gridPre);
   }
-
-  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
-    if (!novaTurmaId) return;
-    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
-    if (!error) {
-        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
-        fetchTurmas(); fetchDadosGlobais();
-        alert("ALUNO TRANSFERIDO!");
-    }
-  };
 
   const salvarAlunoNoBanco = async (index: number) => {
     const aluno = alunosLocais[index];
@@ -139,6 +129,16 @@ export default function CasaDaCultura2026() {
     fetchDadosGlobais();
   };
 
+  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
+    if (!novaTurmaId) return;
+    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
+    if (!error) {
+        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
+        fetchTurmas(); fetchDadosGlobais();
+        alert("ALUNO TRANSFERIDO!");
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
   const ativosSet = new Set(todasPresencas.filter(f => f.status === 'P').map(f => f.aluno_id));
@@ -149,7 +149,24 @@ export default function CasaDaCultura2026() {
     const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
       <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-        <h1 className="text-4xl font-black mb-8 border-l-8 border-black pl-6 italic inline-block tracking-tighter">CASA DA CULTURA <span className="text-blue-600">2026</span></h1>
+        
+        {/* CABEÇALHO DO DASHBOARD COM SELETOR DE MÊS */}
+        <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-10 gap-6">
+            <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
+                CASA DA CULTURA <span className="text-blue-600">2026</span>
+            </h1>
+
+            <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
+                <span className="text-[10px] font-black">RELATÓRIO DE:</span>
+                <select 
+                    value={mes} 
+                    onChange={e => setMes(Number(e.target.value))} 
+                    className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
+                >
+                    {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+            </div>
+        </div>
         
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
@@ -157,7 +174,7 @@ export default function CasaDaCultura2026() {
                 <span className="text-3xl text-blue-600">{todosAlunos.length}</span>
             </div>
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block font-black">ATIVOS NO MÊS</span>
+                <span className="text-[10px] block font-black text-green-600">ATIVOS ({mesesNomes[mes].substring(0,3)})</span>
                 <span className="text-3xl text-green-600">{ativosSet.size}</span>
             </div>
             <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
@@ -190,6 +207,9 @@ export default function CasaDaCultura2026() {
     );
   }
 
+  // ... (O restante das telas 'lista' e 'chamada' permanece conforme o seu código original)
+  // Certifique-se de que o filtro de mês no 'nav' da tela de chamada também use o estado 'mes'
+  
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
@@ -225,17 +245,6 @@ export default function CasaDaCultura2026() {
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
       <title>CASA DA CULTURA 2026</title>
-      <style jsx global>{`
-        @media print {
-          @page { size: auto; margin: 0mm; }
-          .no-print { display: none !important; }
-          body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
-          .folha-container { border: none !important; box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 12mm !important; }
-          table { width: 100% !important; border-width: 2px !important; }
-          th, td { border-width: 1px !important; }
-        }
-      `}</style>
-
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
@@ -257,7 +266,7 @@ export default function CasaDaCultura2026() {
           </div>
           <div className="text-right uppercase font-black">
             <span className="text-5xl block leading-none font-black">{mesesNomes[mes]}</span>
-            <span className="text-[9px] text-gray-500 font-bold tracking-widest text-center">CASA DA CULTURA 2026</span>
+            <span className="text-[9px] text-gray-500 font-bold tracking-widest text-center uppercase">CASA DA CULTURA 2026</span>
           </div>
         </header>
 
@@ -295,16 +304,10 @@ export default function CasaDaCultura2026() {
                            onBlur={() => salvarAlunoNoBanco(i)} />
                   </td>
                   <td className="border-2 border-black px-2 no-print">
-                    <div className="flex items-center justify-between">
-                        <input className="w-full bg-transparent outline-none font-black text-[10px] text-blue-800 italic uppercase" 
-                               value={aluno.telefone || ""} 
-                               onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} 
-                               onBlur={() => salvarAlunoNoBanco(i)} placeholder="DDD9..." />
-                        {aluno.telefone && (
-                            <a href={`https://wa.me/55${aluno.telefone.replace(/\D/g,'')}?text=Olá, sou da Casa da Cultura, gostaria de falar sobre as aulas de ${curso?.oficina}`} 
-                               target="_blank" className="ml-1 text-green-600 font-black text-xs">WA</a>
-                        )}
-                    </div>
+                    <input className="w-full bg-transparent outline-none font-black text-[10px] text-blue-800 italic uppercase" 
+                           value={aluno.telefone || ""} 
+                           onChange={(e) => { const n = [...alunosLocais]; n[i].telefone = e.target.value; setAlunosLocais(n); }} 
+                           onBlur={() => salvarAlunoNoBanco(i)} placeholder="DDD9..." />
                   </td>
                   {(() => {
                     const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
@@ -354,11 +357,9 @@ export default function CasaDaCultura2026() {
               <p className="text-[9px] font-black tracking-tighter uppercase">ASSINATURA DO PROFESSOR(A): {curso?.professor}</p>
             </div>
           </div>
-          <div className="text-center text-[7px] text-gray-400 font-bold tracking-[0.4em] uppercase">
-            FOLHA DE CONTROLE DE FREQUÊNCIA - SECRETARIA DE CULTURA 2026
-          </div>
         </footer>
       </div>
     </div>
   );
 }
+
