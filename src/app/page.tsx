@@ -80,7 +80,6 @@ export default function CasaDaCultura2026() {
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
     const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
     
-    // Garante estrutura de exatamente 10 linhas preenchidas para manter o design fixo das folhas
     if (alData) {
       const linhasPreenchidas = [...alData];
       while (linhasPreenchidas.length < 10) {
@@ -137,16 +136,6 @@ export default function CasaDaCultura2026() {
     fetchDadosGlobais();
   };
 
-  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
-    if (!novaTurmaId) return;
-    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
-    if (!error) {
-        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
-        fetchTurmas(); fetchDadosGlobais();
-        alert("ALUNO TRANSFERIDO!");
-    }
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
   const ativosSet = new Set(todasPresencas.filter(f => f.status === 'P').map(f => f.aluno_id));
@@ -157,7 +146,6 @@ export default function CasaDaCultura2026() {
     const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
       <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-        {/* CABEÇALHO DO DASHBOARD COM SELETOR DE MÊS */}
         <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-10 gap-6">
             <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
                 CASA DA CULTURA <span className="text-blue-600">2026</span>
@@ -202,7 +190,7 @@ export default function CasaDaCultura2026() {
             const isPiano = p === "MICHEL (PIANO)";
             const totalAlunos = turmas.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
             return (
-              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black">
+              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('grid');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black">
                 {p}
                 <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalAlunos} ALUNOS</span>
               </button>
@@ -213,25 +201,35 @@ export default function CasaDaCultura2026() {
     );
   }
 
-  if (tela === 'lista') {
+  if (tela === 'grid') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         
-        {/* CORREÇÃO DAS COLUNAS: Grid de 3 colunas gerenciando os dias do banco de dados */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {[1, 2, 3].map(d => {
             const filtrarTurma = (t: any) => {
+              const profNome = String(t.professor).toUpperCase();
+              
+              // Se for o Samuel, ele vai exclusivamente para a terceira coluna (Quinta/Sexta)
+              if (profNome.includes("SAMUEL MARTINS")) {
+                return d === 3;
+              }
+              
+              // Todos os outros professores usam a lógica padrão deles de dias 1 e 2
               const diasStr = String(t.dias);
-              if (d === 1) return diasStr.includes('1'); // Segunda e Quarta
-              if (d === 2) return diasStr.includes('2'); // Terça e Quinta
-              return diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2')); // Quinta e/ou Sexta isoladas
+              if (d === 1) return diasStr.includes('1');
+              if (d === 2) return diasStr.includes('2');
+              return false;
             };
 
             const tituloColuna = d === 1 ? 'SEGUNDA E QUARTA' : d === 2 ? 'TERÇA E QUINTA' : 'QUINTA E SEXTA';
             const corColuna = d === 1 ? 'bg-blue-600' : d === 2 ? 'bg-red-600' : 'bg-purple-600';
+
+            const turmasFiltradas = turmasDoProf.filter(filtrarTurma);
+            if (turmasFiltradas.length === 0) return null;
 
             return (
               <div key={d}>
@@ -239,7 +237,7 @@ export default function CasaDaCultura2026() {
                   {tituloColuna}
                 </h3>
                 <div className="space-y-4">
-                  {turmasDoProf.filter(filtrarTurma).map(c => {
+                  {turmasFiltradas.map(c => {
                     const n = contagemAlunos[c.id] || 0;
                     const limit = obterLimiteOficina(c.oficina);
                     return (
@@ -259,26 +257,22 @@ export default function CasaDaCultura2026() {
   }
 
   const curso = turmas.find(t => t.id === idAtivo);
+  const profNomeUpper = String(curso?.professor).toUpperCase();
   
-  // CORREÇÃO DOS TEXTOS DO TOPO DA FOLHA DE CHAMADA
   const obterDiasTexto = () => {
-    const diasStr = String(curso?.dias);
-    if (diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'))) return "QUINTA E SEXTA";
-    if (diasStr.includes('2')) return "TERÇA E QUINTA";
+    if (profNomeUpper.includes("SAMUEL MARTINS")) return "QUINTA E SEXTA";
+    if (String(curso?.dias).includes('2')) return "TERÇA E QUINTA";
     return "SEGUNDA E QUARTA";
   };
   const diasTexto = obterDiasTexto();
   
-
-  // CORREÇÃO DO CALENDÁRIO DA DIÁRIA DE CHAMADAS (Suporta 4 e 5 sem conflito)
   const getDatasAulas = () => {
-    let diasAlvo = [1, 3]; 
-    const diasStr = String(curso?.dias);
+    let diasAlvo = [1, 3]; // Segunda (1) e Quarta (3)
     
-    if (diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'))) {
-      diasAlvo = [4, 5]; 
-    } else if (diasStr.includes('2')) {
-      diasAlvo = [2, 4]; 
+    if (profNomeUpper.includes("SAMUEL MARTINS")) {
+      diasAlvo = [4, 5]; // Quinta (4) e Sexta (5)
+    } else if (String(curso?.dias).includes('2')) {
+      diasAlvo = [2, 4]; // Terça (2) e Quinta (4)
     }
 
     const datas: string[] = [];
@@ -297,9 +291,8 @@ export default function CasaDaCultura2026() {
     <div className="min-h-screen italic font-black uppercase bg-white text-black">
       <title>CASA DA CULTURA 2026</title>
 
-      {/* NAVBAR */}
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
+        <button onClick={()=>{setTela('grid'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
           <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", id:null, posicao:alunosLocais.length}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
@@ -307,10 +300,8 @@ export default function CasaDaCultura2026() {
         </div>
       </nav>
 
-      {/* FOLHA DE CHAMADA - MODELO COMPLETO E FIXO EM 10 LINHAS */}
+      {/* RENDERIZAÇÃO COMPLETA DA SUA FOLHA DE CHAMADA ORIGINAL */}
       <div className="folha-container mt-4 mb-10 mx-auto px-6 max-w-[1100px]">
-
-        {/* CABECALHO COM LOGOS */}
         <div className="flex items-stretch border-2 border-black h-[110px] bg-white">
           <div className="flex-1 flex items-center justify-center p-2 border-r border-gray-400">
             <span className="text-xl font-black italic text-center">PREFEITURA MUNICIPAL</span>
@@ -320,7 +311,6 @@ export default function CasaDaCultura2026() {
           </div>
         </div>
 
-        {/* METADADOS DA TURMA */}
         <table className="w-full mt-4 border-collapse border-2 border-black text-xs font-black">
           <tbody>
             <tr className="border-b-2 border-black bg-gray-100">
@@ -331,19 +321,18 @@ export default function CasaDaCultura2026() {
             <tr>
               <td className="p-2 border-r-2 border-black">MÊS DE REFERÊNCIA: {mesesNomes[mes].toUpperCase()}</td>
               <td className="p-2 border-r-2 border-black text-center">DIAS DE AULA: {diasTexto}</td>
-              <td className="p-2 text-right text-blue-600">SAUDAÇÃO: EXCELENTE MÊS DE {mesesNomes[mes].toUpperCase()}!</td>
+              <td className="p-2 text-right text-blue-600">Excelente mês de {mesesNomes[mes]}!</td>
             </tr>
           </tbody>
         </table>
 
-        {/* TABELA DE DIÁRIO DE CLASSE / CHAMADA */}
         <table className="w-full mt-6 border-collapse border-2 border-black text-left text-xs font-black">
           <thead>
             <tr className="bg-black text-white text-[10px]">
               <th className="p-2 border border-black w-[5%] text-center">Nº</th>
               <th className="p-2 border border-black w-[45%]">NOME COMPLETO DO ALUNO</th>
               {datasAulas.map((dt, idx) => (
-                <th key={idx} className="p-1 border border-black text-center font-bold rotate-0 text-[9px] min-w-[40px]">
+                <th key={idx} className="p-1 border border-black text-center font-bold text-[9px] min-w-[40px]">
                   {dt}
                 </th>
               ))}
@@ -386,7 +375,6 @@ export default function CasaDaCultura2026() {
           </tbody>
         </table>
 
-        {/* TEXTO INFORMATIVO DE RODAPÉ */}
         <div className="mt-6 p-4 border border-black bg-gray-50 text-[10px] text-gray-600 text-center font-bold">
           {obterSaudacaoOficial(curso?.oficina)}
         </div>
