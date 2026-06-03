@@ -30,19 +30,6 @@ export default function CasaDaCultura2026() {
     return nome.endsWith('A') ? 'F' : 'M';
   };
 
-  const obterSaudacaoOficial = (oficina: string) => {
-    const o = oficina?.toUpperCase() || "";
-    const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
-    const final = ` um ótimo mês de ${mesesNomes[mes].toLowerCase()} — `;
-    
-    if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária.`;
-    if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias.`;
-    if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves.`;
-    if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) return `${base}Canto${final}que sua voz continue ecoando incentive.`;
-    
-    return `A unidade da Casa da Cultura do Jardim Europa deseja um ótimo mês de ${mesesNomes[mes].toLowerCase()} — que a arte continue transformando vidas.`;
-  };
-
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -93,8 +80,6 @@ export default function CasaDaCultura2026() {
   const salvarAlunoNoBanco = async (index: number) => {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return null;
-    
-    // CORREÇÃO DA CHAMADA DE ESCOPO DO ESPECIFICADOR DE GÊNERO
     const payload = { 
         turma_id: idAtivo, 
         nome: aluno.nome.trim().toUpperCase(), 
@@ -102,7 +87,6 @@ export default function CasaDaCultura2026() {
         genero: detectarGenero(aluno.nome),
         posicao: index 
     };
-
     if (aluno.id) {
       await supabase.from('alunos').update(payload).eq('id', aluno.id);
       return aluno.id;
@@ -205,71 +189,41 @@ export default function CasaDaCultura2026() {
       </div>
     );
   }
-
+  
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          {[1, 2, 3].map(d => {
-            const filtrarTurma = (t: any) => {
-              const diasStr = String(t.dias);
-              if (d === 1) return diasStr.includes('1');
-              if (d === 2) return diasStr.includes('2');
-              return diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'));
-            };
-
-            const tituloColuna = d === 1 ? 'SEGUNDA E QUARTA' : d === 2 ? 'TERÇA E QUINTA' : 'QUINTA E SEXTA';
-            const corColuna = d === 1 ? 'bg-blue-600' : d === 2 ? 'bg-red-600' : 'bg-purple-600';
-
-            return (
-              <div key={d}>
-                <h3 className={`p-3 mb-6 text-center border-4 border-black ${corColuna} text-white shadow-[4px_4px_0px_#000] font-black`}>
-                  {tituloColuna}
-                </h3>
-                <div className="space-y-4">
-                  {turmasDoProf.filter(filtrarTurma).map(c => {
-                    const n = contagemAlunos[c.id] || 0;
-                    const limit = obterLimiteOficina(c.oficina);
-                    return (
-                      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
-                        <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                        <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
-                      </div>
-                    )
-                  })}
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          {[1, 2].map(d => (
+            <div key={d}>
+              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
+              <div className="space-y-4">
+                {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
+                  const n = contagemAlunos[c.id] || 0;
+                  const limit = obterLimiteOficina(c.oficina);
+                  return (
+                    <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
+                      <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
+                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
+                    </div>
+                  )
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
-    );
+    )
   }
 
   const curso = turmas.find(t => t.id === idAtivo);
-  
-  const obterDiasTexto = () => {
-    const diasStr = String(curso?.dias);
-    if (diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'))) return "QUINTA E SEXTA";
-    if (diasStr.includes('2')) return "TERÇA E QUINTA";
-    return "SEGUNDA E QUARTA";
-  };
-  const diasTexto = obterDiasTexto();
-  
-  const getDatasAulas = () => {
-    let diasAlvo = [1, 3];
-    const diasStr = String(curso?.dias);
-    
-    if (diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'))) {
-      diasAlvo = [4, 5];
-    } else if (diasStr.includes('2')) {
-      diasAlvo = [2, 4];
-    }
+  const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
 
+  const getDatasAulas = () => {
+    const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
     const datas: string[] = [];
     const ultimoDia = new Date(2026, mes + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
@@ -284,6 +238,7 @@ export default function CasaDaCultura2026() {
 
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
+      <title>CASA DA CULTURA 2026</title>
 
       {/* NAVBAR */}
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
@@ -295,53 +250,87 @@ export default function CasaDaCultura2026() {
         </div>
       </nav>
 
-      {/* FOLHA DE CHAMADA */}
+      {/* FOLHA DE CHAMADA DESIGN FIEL À image_847369.png */}
       <div className="folha-container mt-4 mb-10" style={{maxWidth:"1100px", margin:"16px auto 40px auto", padding:"0 24px"}}>
 
-        {/* CABECALHO COM 2 LOGOS */}
-        <div style={{display:"flex", alignItems:"stretch", border:"1px solid #000", height:"110px", background:"white"}}>
-          <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"4px 16px"}}>
-            <img
-              src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABcAbYDASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAYHBAUIAwkCAf/EAFMQAAEDBAAEAQcEDAgMBwEAAAECAwQABQYRBxIhMKYTFRhBkpTT1AgUIlFhcYEyNhYjQnV2kaGxtLXRF1JidLIkN1VywSczNWNzgpWj4eLw/AAGgEBAAIDAQAAAAAAAAAAAAAAAAEFAgMEBv/EADIRAAIBAwMCBAQFBQEBAAAAAAABAgMEERIhMQVBEyJRYQZxgZEUMqGxwRYj0eHwFUL/2gAmuEmdLAEMTNsRNDeN9OfOeNfR3/6gK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN"
-              alt="Logo Prefeitura"
-            />
-          </div>
-          <div style={{width:"1px", background:"#000", margin:"12px 0"}}></div>
-          <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"flex-start", padding:"4px 16px"}}>
-            <img
-              src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABmAsoDASIAAhEBAxEB/8QAHQABAQACAgMBAAAAAAAAAAAAAAYFBwQIAgMJAf/EAFEQAAAFAwAFCAcCCwUFCAMAAAABAgMEBQYRBxIhMKYTFRhBkpTT1AgUIlFhcYEyNhYjQnV2kaGxtLXRF1JidLIkN1VywSczNWNzgpWj4eLw/AAGgEBAAIDAQAAAAAAAAAAAAAAAAEFAgMEBv/EADIRAAIBAwMCBAQFBQEBAAAAAAABAgMEERIhMQVBEyJRYQZxgZEUMqGxwRYj0eHwFUL/2gAmuEmdLAEMTNsRNDeN9OfOeNfR3/6gK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN"
-              alt="Logo Casa da Cultura"
-            />
-          </div>
+        {/* MOLDURA DO CABEÇALHO OFICIAL (PREFEITURA DE TEIXEIRA DE FREITAS) */}
+        <div style={{display:"block", marginBottom:"0px", border:"3px solid #000", padding:"1px"}}>
+          <img
+            src="/cabecalho-teixeira.png" 
+            alt="Prefeitura de Teixeira de Freitas - Secretaria de Cultura e Turismo - Casa da Cultura"
+            style={{display:"block", width:"100%", height:"auto", maxHeight:"120px", objectFit:"contain"}}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
         </div>
 
-        {/* SUB-CABEÇALHO */}
-        <div style={{display:"flex", border:"1px solid #000", borderTop:"none", background:"#f1f5f9", fontSize:"10px", fontWeight:"bold", padding:"6px 12px", justifyContent:"space-between"}}>
-          <div>PROFESSOR(A): <span style={{color:"#2563eb"}}>{curso?.professor}</span></div>
-          <div>OFICINA: <span style={{color:"#2563eb"}}>{curso?.oficina}</span></div>
-          <div>DIAS: <span style={{color:"#6b7280"}}>{diasTexto}</span></div>
-          <div>HORÁRIO: <span style={{color:"#000"}}>{curso?.horario}</span></div>
-        </div>
+        {/* BLOCO AZUL DE INFORMAÇÕES DA TURMA */}
+        <table className="w-full border-collapse mb-0" style={{borderSpacing: 0}}>
+          <tbody>
+            <tr>
+              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase w-1/2">
+                OFICINEIRO (A)/ PROFESSOR (A): <span className="font-normal">{curso?.professor}</span>
+              </td>
+              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase w-1/2">
+                CURSO: <span className="font-normal">{curso?.oficina}</span>
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
+                DIAS DA SEMANA: <span className="font-normal">{diasTexto}</span>
+              </td>
+              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
+                HORÁRIO: <span className="font-normal">{curso?.horario}</span>
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
+                CASA DE CULTURA - BELA VISTA (SEDE)
+              </td>
+              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] text-center uppercase tracking-widest">
+                {mesesNomes[mes]}
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        {/* TABELA DE ALUNOS */}
-        <table style={{width:"100%", borderCollapse:"collapse", border:"1px solid #000", marginTop:"8px", background:"white"}}>
+        {/* TABELA PRINCIPAL DE CHAMADA (ESTRITA DE 10 LINHAS MÁXIMO) */}
+        <table className="w-full border-collapse mt-0 text-black bg-white" style={{border: "2px solid #000"}}>
           <thead>
-            <tr style={{background:"#000", color:"white", fontSize:"10px"}}>
-              <th style={{border:"1px solid #000", padding:"4px", width:"30px"}}>Nº</th>
-              <th style={{border:"1px solid #000", padding:"4px", textAlign:"left"}}>NOME DO ALUNO</th>
-              <th style={{border:"1px solid #000", padding:"4px", width:"110px"}}>TELEFONE</th>
+            <tr className="bg-[#3b82f6] text-white text-[10px] font-black tracking-tight" style={{height: "26px"}}>
+              <th className="border border-black px-1 text-center" style={{width: "40px"}}>ORDEM</th>
+              <th className="border border-black px-3 text-left">NOMES</th>
+              <th className="border border-black px-2 text-center" style={{width: "45px"}}>GÊN.</th>
+              <th className="border border-black px-2 text-center" style={{width: "120px"}}>TELEFONE</th>
               {datasAulas.map((dt, i) => (
-                <th key={i} style={{border:"1px solid #000", padding:"2px", width:"35px", fontSize:"9px", textAlign:"center"}}>{dt}</th>
+                <th key={i} className="border border-black text-center font-black text-[10px] px-0" style={{width: "35px", minWidth:"35px"}}>{dt.split('/')[0]}</th>
               ))}
+              {datasAulas.length < 10 && [...Array(10 - datasAulas.length)].map((_, idx) => (
+                <th key={`v-${idx}`} className="border border-black" style={{width: "35px"}}></th>
+              ))}
+              <th className="border border-black text-center text-[10px]" style={{width: "50px"}}>FALTAS</th>
             </tr>
           </thead>
           <tbody>
             {[...Array(10)].map((_, index) => {
               const al = alunosLocais[index];
+              const gen = al?.nome ? detectarGenero(al.nome) : "";
+
+              let totalFaltas = 0;
+              if (al?.id && presencas[al.id]) {
+                Object.values(presencas[al.id]).forEach(status => {
+                  if (status === "F") totalFaltas++;
+                });
+              }
+
               return (
-                <tr key={index} style={{height:"32px", fontSize:"11px"}}>
-                  <td style={{border:"1px solid #000", textAlign:"center", fontWeight:"bold", background:"#f8fafc"}}>{index + 1}</td>
-                  <td style={{border:"1px solid #000", padding:"0 8px"}}>
+                <tr key={index} style={{height: "34px"}} className="hover:bg-gray-50 text-[11px]">
+                  <td className="border border-black text-center font-black text-xs">
+                    {index + 1}
+                  </td>
+                  
+                  <td className="border border-black px-3 font-black uppercase relative">
                     <input
                       type="text"
                       value={al?.nome || ""}
@@ -352,12 +341,43 @@ export default function CasaDaCultura2026() {
                         setAlunosLocais(n);
                       }}
                       onBlur={() => salvarAlunoNoBanco(index)}
-                      className="w-full bg-transparent outline-none font-bold uppercase"
-                      style={{letterSpacing:"-0.5px"}}
+                      className="w-full bg-transparent outline-none font-black uppercase text-xs"
+                      style={{letterSpacing: "-0.3px"}}
                       placeholder="..."
                     />
+                    {modoGestao && al?.id && (
+                      <div className="absolute right-1 top-1 bg-white border border-red-500 rounded p-1 z-10 no-print flex gap-1 shadow-md">
+                        <select 
+                          className="text-[9px] font-black cursor-pointer bg-gray-100 p-0.5"
+                          onChange={(e) => transferirAluno(al.id, e.target.value)}
+                          defaultValue=""
+                        >
+                          <option value="" disabled>MOVER</option>
+                          {turmas.filter(t => t.id !== idAtivo).map(t => (
+                            <option key={t.id} value={t.id}>{t.professor} - {t.horario} ({t.oficina})</option>
+                          ))}
+                        </select>
+                        <button 
+                          onClick={async () => {
+                            if(confirm(`REMOVER ${al.nome}?`)) {
+                              await supabase.from('alunos').delete().eq('id', al.id);
+                              setAlunosLocais(alunosLocais.filter(a => a.id !== al.id));
+                              fetchTurmas(); fetchDadosGlobais();
+                            }
+                          }}
+                          className="bg-red-600 text-white font-black text-[9px] px-1 rounded hover:bg-red-700"
+                        >
+                          X
+                        </button>
+                      </div>
+                    )}
                   </td>
-                  <td style={{border:"1px solid #000", padding:"0 4px"}}>
+
+                  <td className="border border-black text-center font-black text-xs text-gray-400 bg-gray-50">
+                    {gen}
+                  </td>
+
+                  <td className="border border-black px-1">
                     <input
                       type="text"
                       value={al?.telefone || ""}
@@ -368,39 +388,54 @@ export default function CasaDaCultura2026() {
                         setAlunosLocais(n);
                       }}
                       onBlur={() => salvarAlunoNoBanco(index)}
-                      className="w-full bg-transparent outline-none text-center text-[10px] text-gray-600"
+                      className="w-full bg-transparent outline-none text-center text-[10px] font-bold text-gray-700"
                       placeholder="-"
                     />
                   </td>
+
                   {datasAulas.map((dt, idx) => {
                     const status = al?.id ? (presencas[al.id]?.[dt] || "") : "";
                     return (
                       <td
                         key={idx}
                         onClick={() => al?.id && alternarPresenca(index, dt)}
+                        className="border border-black text-center font-black text-sm select-none transition-colors"
                         style={{
-                          border:"1px solid #000",
-                          textAlign:"center",
                           cursor: al?.id ? "pointer" : "default",
-                          background: status === "P" ? "#bbf7d0" : status === "F" ? "#fecaca" : status === "J" ? "#fef08a" : "transparent",
-                          color: status === "F" ? "#dc2626" : status === "P" ? "#16a34a" : "#ca8a04",
-                          fontWeight: 900,
-                          fontSize:"12px"
+                          backgroundColor: status === "P" ? "#bbf7d0" : status === "F" ? "#fecaca" : status === "J" ? "#fef08a" : "transparent",
+                          color: status === "F" ? "#dc2626" : status === "P" ? "#16a34a" : "#ca8a04"
                         }}
                       >
                         {status}
                       </td>
                     );
                   })}
+
+                  {datasAulas.length < 10 && [...Array(10 - datasAulas.length)].map((_, idx) => (
+                    <td key={`bc-${idx}`} className="border border-black bg-gray-50 cursor-not-allowed"></td>
+                  ))}
+
+                  <td className="border border-black text-center font-black text-sm">
+                    {totalFaltas}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
 
-        {/* NOTA DE SAUDAÇÃO OFICIAL */}
-        <div style={{marginTop:"12px", padding:"10px", border:"1px solid #000", background:"#fff", fontSize:"10px", textAlign:"center", letterSpacing:"-0.2px"}}>
-          {obterSaudacaoOficial(curso?.oficina)}
+        {/* CONTAINER DE ASSINATURA */}
+        <div className="w-full flex justify-end mt-12 items-center">
+          <div className="text-right border-t border-black pt-1" style={{width: "320px"}}>
+            <span className="text-[10px] font-black uppercase block tracking-tight">
+              ASSINATURA DO PROFESSOR(A): {curso?.professor}
+            </span>
+          </div>
+        </div>
+
+        {/* NOTA PEDAGÓGICA INALTERADA */}
+        <div style={{border: "1px solid #4a90d9", marginTop: "16px", padding: "8px 12px", background: "#f1f5f9", fontSize: "10px", textAlign: "center", fontStyle: "italic", fontWeight: "bold"}} className="text-gray-700 uppercase tracking-tight">
+          Excelente mês de fevereiro! A unidade da Casa da Cultura do Jardim Europa deseja um ótimo mês de trabalho e música — que a arte continue transformando vidas.
         </div>
       </div>
     </div>
