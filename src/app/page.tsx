@@ -406,4 +406,3 @@ export default function CasaDaCultura2026() {
     </div>
   );
 }
-
