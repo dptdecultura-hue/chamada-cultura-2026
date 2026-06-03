@@ -30,6 +30,19 @@ export default function CasaDaCultura2026() {
     return nome.endsWith('A') ? 'F' : 'M';
   };
 
+  const obterSaudacaoOficial = (oficina: string) => {
+    const o = oficina?.toUpperCase() || "";
+    const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
+    const final = ` um ótimo mês de ${mesesNomes[mes].toLowerCase()} — `;
+    
+    if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária.`;
+    if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias.`;
+    if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves.`;
+    if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) return `${base}Canto${final}que sua voz continue ecoando incentivo.`;
+    
+    return `A unidade da Casa da Cultura do Jardim Europa deseja um ótimo mês de ${mesesNomes[mes].toLowerCase()} — que a arte continue transformando vidas.`;
+  };
+
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -84,9 +97,12 @@ export default function CasaDaCultura2026() {
         turma_id: idAtivo, 
         nome: aluno.nome.trim().toUpperCase(), 
         telefone: aluno.telefone || "", 
-        genero: detectarGenero(aluno.nome),
+        genero: paganini_genero(aluno.nome),
         posicao: index 
     };
+    function paganini_genero(nome: string) {
+       return detectarGenero(nome);
+    }
     if (aluno.id) {
       await supabase.from('alunos').update(payload).eq('id', aluno.id);
       return aluno.id;
@@ -189,42 +205,71 @@ export default function CasaDaCultura2026() {
       </div>
     );
   }
-  
+
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          {[1, 2].map(d => (
-            <div key={d}>
-              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
-              <div className="space-y-4">
-                {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
-                  const n = contagemAlunos[c.id] || 0;
-                  const limit = obterLimiteOficina(c.oficina);
-                  return (
-                    <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
-                      <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
-                    </div>
-                  )
-                })}
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+          {[1, 2, 3].map(d => {
+            const filtrarTurma = (t: any) => {
+              const diasStr = String(t.dias);
+              if (d === 1) return diasStr.includes('1');
+              if (d === 2) return diasStr.includes('2');
+              return diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'));
+            };
+
+            const tituloColuna = d === 1 ? 'SEGUNDA E QUARTA' : d === 2 ? 'TERÇA E QUINTA' : 'QUINTA E SEXTA';
+            const corColuna = d === 1 ? 'bg-blue-600' : d === 2 ? 'bg-red-600' : 'bg-purple-600';
+
+            return (
+              <div key={d}>
+                <h3 className={`p-3 mb-6 text-center border-4 border-black ${corColuna} text-white shadow-[4px_4px_0px_#000] font-black`}>
+                  {tituloColuna}
+                </h3>
+                <div className="space-y-4">
+                  {turmasDoProf.filter(filtrarTurma).map(c => {
+                    const n = contagemAlunos[c.id] || 0;
+                    const limit = obterLimiteOficina(c.oficina);
+                    return (
+                      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
+                        <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
+                        <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
-    )
+    );
   }
 
   const curso = turmas.find(t => t.id === idAtivo);
-  const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
-
-  // Calcula as datas das aulas do mês
+  
+  const obterDiasTexto = () => {
+    const diasStr = String(curso?.dias);
+    if (diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'))) return "QUINTA E SEXTA";
+    if (diasStr.includes('2')) return "TERÇA E QUINTA";
+    return "SEGUNDA E QUARTA";
+  };
+  const diasTexto = obterDiasTexto();
+  
   const getDatasAulas = () => {
-    const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
+    let diasAlvo = [1, 3];
+    const diasStr = String(curso?.dias);
+    
+    if (diasStr.includes('5') || (diasStr.includes('4') && !diasStr.includes('2'))) {
+      diasAlvo = [4, 5];
+    } else if (diasStr.includes('2')) {
+      diasAlvo = [2, 4];
+    }
+
     const datas: string[] = [];
     const ultimoDia = new Date(2026, mes + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
@@ -239,9 +284,8 @@ export default function CasaDaCultura2026() {
 
   return (
     <div className="min-h-screen italic font-black uppercase bg-white">
-      <title>CASA DA CULTURA 2026</title>
 
-      {/* NAVBAR - apenas na tela, não imprime */}
+      {/* NAVBAR */}
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
@@ -251,12 +295,115 @@ export default function CasaDaCultura2026() {
         </div>
       </nav>
 
-      {/* =============================================
-          FOLHA DE CHAMADA - MODELO 2.0
-          ============================================= */}
+      {/* FOLHA DE CHAMADA */}
       <div className="folha-container mt-4 mb-10" style={{maxWidth:"1100px", margin:"16px auto 40px auto", padding:"0 24px"}}>
 
-        {/* CABEÇALHO INSTITUCIONAL */}
-        <div style={{display:"block", marginBottom:"0px", border:"1px solid #4a90d9"}}>
-          <img
-            src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABmAsoDASIAAhEBAxEB/8QAHQABAQACAgMBAAAAAAAAAAAAAAYFBwQIAgMJAf/EAFEQAAAFAwAFCAcCCwUFCAMAAAABAgMEBQYRBxIhMVYTFRhBkpTT1AgUIlFhcYEyNhYjQnV2kaGxtLXRF1JidLIkN1VywSczNWNzgpWj4eLw/8QAGgEBAAIDAQAAAAAAAAAAAAAAAAEFAgMEBv/EADIRAAIBAwMCBAQFBQEBAAAAAAABAgMEERIhMQVBEyJRYQZxgZEUMqGxwRYj0eHwFUL/2gAMAwEAAhEDEQA/AOza7olu1iq06mW5cFU5rkpiyH2HISG+UNlt7Bcq6hR+y6jbjG0efPte4HujvFN8wPHR/wDea/8A9Ikfy2CK8ASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN
+        {/* CABECALHO COM 2 LOGOS */}
+        <div style={{display:"flex", alignItems:"stretch", border:"1px solid #000", height:"110px", background:"white"}}>
+          <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"4px 16px"}}>
+            <img
+              src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABcAbYDASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAYHBAUIAwkCAf/EAFMQAAEDBAAEAQcEDAgMBwEAAAECAwQABQYRBxIhMKYTFRhBkpTT1AgUIlFhcYEyNhYjQnV2kaGxtLXRF1JidLIkN1VywSczNWNzgpWj4eLw/AAGgEBAAIDAQAAAAAAAAAAAAAAAAEFAgMEBv/EADIRAAIBAwMCBAQFBQEBAAAAAAABAgMEERIhMQVBEyJRYQZxgZEUMqGxwRYj0eHwFUL/2gAmuEmdLAEMTNsRNDeN9OfOeNfR3/6gK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN"
+              alt="Logo Prefeitura"
+            />
+          </div>
+          <div style={{width:"1px", background:"#000", margin:"12px 0"}}></div>
+          <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"flex-start", padding:"4px 16px"}}>
+            <img
+              src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABmAsoDASIAAhEBAxEB/8QAHQABAQACAgMBAAAAAAAAAAAAAAYFBwQIAgMJAf/EAFEQAAAFAwAFCAcCCwUFCAMAAAABAgMEBQYRBxIhMKYTFRhBkpTT1AgUIlFhcYEyNhYjQnV2kaGxtLXRF1JidLIkN1VywSczNWNzgpWj4eLw/AAGgEBAAIDAQAAAAAAAAAAAAAAAAEFAgMEBv/EADIRAAIBAwMCBAQFBQEBAAAAAAABAgMEERIhMQVBEyJRYQZxgZEUMqGxwRYj0eHwFUL/2gAmuEmdLAEMTNsRNDeN9OfOeNfR3/6gK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN"
+              alt="Logo Casa da Cultura"
+            />
+          </div>
+        </div>
+
+        {/* SUB-CABEÇALHO */}
+        <div style={{display:"flex", border:"1px solid #000", borderTop:"none", background:"#f1f5f9", fontSize:"10px", fontWeight:"bold", padding:"6px 12px", justifyContent:"space-between"}}>
+          <div>PROFESSOR(A): <span style={{color:"#2563eb"}}>{curso?.professor}</span></div>
+          <div>OFICINA: <span style={{color:"#2563eb"}}>{curso?.oficina}</span></div>
+          <div>DIAS: <span style={{color:"#6b7280"}}>{diasTexto}</span></div>
+          <div>HORÁRIO: <span style={{color:"#000"}}>{curso?.horario}</span></div>
+        </div>
+
+        {/* TABELA DE ALUNOS COM EXACTAMENTE 10 LINHAS FIXAS */}
+        <table style={{width:"100%", borderCollapse:"collapse", border:"1px solid #000", marginTop:"8px", background:"white"}}>
+          <thead>
+            <tr style={{background:"#000", color:"white", fontSize:"10px"}}>
+              <th style={{border:"1px solid #000", padding:"4px", width:"30px"}}>Nº</th>
+              <th style={{border:"1px solid #000", padding:"4px", textAlign:"left"}}>NOME DO ALUNO</th>
+              <th style={{border:"1px solid #000", padding:"4px", width:"110px"}}>TELEFONE</th>
+              {datasAulas.map((dt, i) => (
+                <th key={i} style={{border:"1px solid #000", padding:"2px", width:"35px", fontSize:"9px", textAlign:"center"}}>{dt}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(10)].map((_, index) => {
+              const al = alunosLocais[index];
+              return (
+                <tr key={index} style={{height:"32px", fontSize:"11px"}}>
+                  <td style={{border:"1px solid #000", textAlign:"center", fontWeight:"bold", background:"#f8fafc"}}>{index + 1}</td>
+                  <td style={{border:"1px solid #000", padding:"0 8px"}}>
+                    <input
+                      type="text"
+                      value={al?.nome || ""}
+                      onChange={e => {
+                        const n = [...alunosLocais];
+                        if(!n[index]) n[index] = {nome:"", telefone:"", posicao:index, id:null};
+                        n[index].nome = e.target.value.toUpperCase();
+                        setAlunosLocais(n);
+                      }}
+                      onBlur={() => salvarAlunoNoBanco(index)}
+                      className="w-full bg-transparent outline-none font-bold uppercase"
+                      style={{letterSpacing:"-0.5px"}}
+                      placeholder="..."
+                    />
+                  </td>
+                  <td style={{border:"1px solid #000", padding:"0 4px"}}>
+                    <input
+                      type="text"
+                      value={al?.telefone || ""}
+                      onChange={e => {
+                        const n = [...alunosLocais];
+                        if(!n[index]) n[index] = {nome:"", telefone:"", posicao:index, id:null};
+                        n[index].telefone = e.target.value;
+                        setAlunosLocais(n);
+                      }}
+                      onBlur={() => salvarAlunoNoBanco(index)}
+                      className="w-full bg-transparent outline-none text-center text-[10px] text-gray-600"
+                      placeholder="-"
+                    />
+                  </td>
+                  {datasAulas.map((dt, idx) => {
+                    const status = al?.id ? (presencas[al.id]?.[dt] || "") : "";
+                    return (
+                      <td
+                        key={idx}
+                        onClick={() => al?.id && alternarPresenca(index, dt)}
+                        style={{
+                          border:"1px solid #000",
+                          textAlign:"center",
+                          cursor: al?.id ? "pointer" : "default",
+                          background: status === "P" ? "#bbf7d0" : status === "F" ? "#fecaca" : status === "J" ? "#fef08a" : "transparent",
+                          color: status === "F" ? "#dc2626" : status === "P" ? "#16a34a" : "#ca8a04",
+                          fontWeight: 900,
+                          fontSize:"12px"
+                        }}
+                      >
+                        {status}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* NOTA DE SAUDAÇÃO OFICIAL */}
+        <div style={{marginTop:"12px", padding:"10px", border:"1px solid #000", background:"#fff", fontSize:"10px", textAlign:"center", letterSpacing:"-0.2px"}}>
+          {obterSaudacaoOficial(curso?.oficina)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
