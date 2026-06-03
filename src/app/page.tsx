@@ -30,19 +30,6 @@ export default function CasaDaCultura2026() {
     return nome.endsWith('A') ? 'F' : 'M';
   };
 
-  const obterSaudacaoOficial = (oficina: string) => {
-    const o = oficina?.toUpperCase() || "";
-    const base = "A unidade da Casa da Cultura do Jardim Europa deseja ao professor de ";
-    const final = ` um ótimo mês de ${mesesNomes[mes].toLowerCase()} — `;
-    
-    if (o.includes("PERCUSSÃO") || o.includes("BATERIA")) return `${base}Percussão${final}que o ritmo continue sendo sua energia diária.`;
-    if (o.includes("VIOLINO")) return `${base}Violino${final}que a música siga afinando os dias.`;
-    if (o.includes("PIANO") || o.includes("TECLADO")) return `${base}Piano${final}que as melodias tornem seus dias mais leves.`;
-    if (o.includes("VOCAL") || o.includes("CORO") || o.includes("CANTO")) return `${base}Canto${final}que sua voz continue ecoando incentivo.`;
-    
-    return `A unidade da Casa da Cultura do Jardim Europa deseja um ótimo mês de ${mesesNomes[mes].toLowerCase()} — que a arte continue transformando vidas.`;
-  };
-
   const obterLimiteOficina = (oficina: string) => {
     const o = oficina?.toUpperCase() || "";
     if (o.includes("FLAUTA DOCE")) return 10;
@@ -79,15 +66,7 @@ export default function CasaDaCultura2026() {
   async function fetchDados() {
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
     const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
-    
-    if (alData) {
-      const linhasPreenchidas = [...alData];
-      while (linhasPreenchidas.length < 10) {
-        linhasPreenchidas.push({ nome: "", telefone: "", id: null, posicao: linhasPreenchidas.length });
-      }
-      setAlunosLocais(linhasPreenchidas);
-    }
-    
+    if (alData) setAlunosLocais(alData);
     const gridPre: any = {};
     preData?.forEach(p => {
       if(p.aluno_id) {
@@ -134,6 +113,16 @@ export default function CasaDaCultura2026() {
     if (novoStatus === "") await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mes);
     else await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mes, status: novoStatus });
     fetchDadosGlobais();
+  };
+
+  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
+    if (!novaTurmaId) return;
+    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
+    if (!error) {
+        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
+        fetchTurmas(); fetchDadosGlobais();
+        alert("ALUNO TRANSFERIDO!");
+    }
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
@@ -190,7 +179,7 @@ export default function CasaDaCultura2026() {
             const isPiano = p === "MICHEL (PIANO)";
             const totalAlunos = turmas.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
             return (
-              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('grid');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black">
+              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black">
                 {p}
                 <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalAlunos} ALUNOS</span>
               </button>
@@ -200,81 +189,42 @@ export default function CasaDaCultura2026() {
       </div>
     );
   }
-
-  if (tela === 'grid') {
+  
+  if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          {[1, 2, 3].map(d => {
-            const filtrarTurma = (t: any) => {
-              const profNome = String(t.professor).toUpperCase();
-              
-              // Se for o Samuel, ele vai exclusivamente para a terceira coluna (Quinta/Sexta)
-              if (profNome.includes("SAMUEL MARTINS")) {
-                return d === 3;
-              }
-              
-              // Todos os outros professores usam a lógica padrão deles de dias 1 e 2
-              const diasStr = String(t.dias);
-              if (d === 1) return diasStr.includes('1');
-              if (d === 2) return diasStr.includes('2');
-              return false;
-            };
-
-            const tituloColuna = d === 1 ? 'SEGUNDA E QUARTA' : d === 2 ? 'TERÇA E QUINTA' : 'QUINTA E SEXTA';
-            const corColuna = d === 1 ? 'bg-blue-600' : d === 2 ? 'bg-red-600' : 'bg-purple-600';
-
-            const turmasFiltradas = turmasDoProf.filter(filtrarTurma);
-            if (turmasFiltradas.length === 0) return null;
-
-            return (
-              <div key={d}>
-                <h3 className={`p-3 mb-6 text-center border-4 border-black ${corColuna} text-white shadow-[4px_4px_0px_#000] font-black`}>
-                  {tituloColuna}
-                </h3>
-                <div className="space-y-4">
-                  {turmasFiltradas.map(c => {
-                    const n = contagemAlunos[c.id] || 0;
-                    const limit = obterLimiteOficina(c.oficina);
-                    return (
-                      <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
-                        <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                        <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
-                      </div>
-                    )
-                  })}
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          {[1, 2].map(d => (
+            <div key={d}>
+              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
+              <div className="space-y-4">
+                {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
+                  const n = contagemAlunos[c.id] || 0;
+                  const limit = obterLimiteOficina(c.oficina);
+                  return (
+                    <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
+                      <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
+                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
+                    </div>
+                  )
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
-    );
+    )
   }
 
   const curso = turmas.find(t => t.id === idAtivo);
-  const profNomeUpper = String(curso?.professor).toUpperCase();
-  
-  const obterDiasTexto = () => {
-    if (profNomeUpper.includes("SAMUEL MARTINS")) return "QUINTA E SEXTA";
-    if (String(curso?.dias).includes('2')) return "TERÇA E QUINTA";
-    return "SEGUNDA E QUARTA";
-  };
-  const diasTexto = obterDiasTexto();
-  
-  const getDatasAulas = () => {
-    let diasAlvo = [1, 3]; // Segunda (1) e Quarta (3)
-    
-    if (profNomeUpper.includes("SAMUEL MARTINS")) {
-      diasAlvo = [4, 5]; // Quinta (4) e Sexta (5)
-    } else if (String(curso?.dias).includes('2')) {
-      diasAlvo = [2, 4]; // Terça (2) e Quinta (4)
-    }
+  const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
 
+  // Calcula as datas das aulas do mês
+  const getDatasAulas = () => {
+    const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
     const datas: string[] = [];
     const ultimoDia = new Date(2026, mes + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
@@ -288,97 +238,25 @@ export default function CasaDaCultura2026() {
   const datasAulas = getDatasAulas();
 
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white text-black">
+    <div className="min-h-screen italic font-black uppercase bg-white">
       <title>CASA DA CULTURA 2026</title>
 
+      {/* NAVBAR - apenas na tela, não imprime */}
       <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('grid'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
+        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
         <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", id:null, posicao:alunosLocais.length}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
+          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
           <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
         </div>
       </nav>
 
-      {/* RENDERIZAÇÃO COMPLETA DA SUA FOLHA DE CHAMADA ORIGINAL */}
-      <div className="folha-container mt-4 mb-10 mx-auto px-6 max-w-[1100px]">
-        <div className="flex items-stretch border-2 border-black h-[110px] bg-white">
-          <div className="flex-1 flex items-center justify-center p-2 border-r border-gray-400">
-            <span className="text-xl font-black italic text-center">PREFEITURA MUNICIPAL</span>
-          </div>
-          <div className="flex-1 flex items-center justify-center p-2">
-            <span className="text-xl font-black italic text-center">CASA DA CULTURA - JARDIM EUROPA</span>
-          </div>
-        </div>
+      {/* =============================================
+          FOLHA DE CHAMADA - MODELO 2.0
+          ============================================= */}
+      <div className="folha-container mt-4 mb-10" style={{maxWidth:"1100px", margin:"16px auto 40px auto", padding:"0 24px"}}>
 
-        <table className="w-full mt-4 border-collapse border-2 border-black text-xs font-black">
-          <tbody>
-            <tr className="border-b-2 border-black bg-gray-100">
-              <td className="p-2 border-r-2 border-black w-1/3">PROFESSOR: {curso?.professor}</td>
-              <td className="p-2 border-r-2 border-black w-1/3 text-center">OFICINA: {curso?.oficina}</td>
-              <td className="p-2 w-1/3 text-right">HORÁRIO: {curso?.horario}</td>
-            </tr>
-            <tr>
-              <td className="p-2 border-r-2 border-black">MÊS DE REFERÊNCIA: {mesesNomes[mes].toUpperCase()}</td>
-              <td className="p-2 border-r-2 border-black text-center">DIAS DE AULA: {diasTexto}</td>
-              <td className="p-2 text-right text-blue-600">Excelente mês de {mesesNomes[mes]}!</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <table className="w-full mt-6 border-collapse border-2 border-black text-left text-xs font-black">
-          <thead>
-            <tr className="bg-black text-white text-[10px]">
-              <th className="p-2 border border-black w-[5%] text-center">Nº</th>
-              <th className="p-2 border border-black w-[45%]">NOME COMPLETO DO ALUNO</th>
-              {datasAulas.map((dt, idx) => (
-                <th key={idx} className="p-1 border border-black text-center font-bold text-[9px] min-w-[40px]">
-                  {dt}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {alunosLocais.map((aluno, idx) => (
-              <tr key={idx} className="border-b border-black h-[38px] hover:bg-gray-50">
-                <td className="p-1 border border-black text-center text-gray-500 font-bold">{idx + 1}</td>
-                <td className="p-1 border border-black px-2">
-                  <input
-                    type="text"
-                    value={aluno.nome || ""}
-                    placeholder={modoGestao ? "Clique para preencher..." : "—"}
-                    disabled={!modoGestao}
-                    onChange={(e) => {
-                      const novos = [...alunosLocais];
-                      novos[idx].nome = e.target.value.toUpperCase();
-                      setAlunosLocais(novos);
-                    }}
-                    onBlur={() => salvarAlunoNoBanco(idx)}
-                    className="w-full bg-transparent outline-none font-black text-xs disabled:text-black placeholder-gray-300 uppercase"
-                  />
-                </td>
-                {datasAulas.map((dt, idxData) => {
-                  const status = presencas[aluno.id]?.[dt] || "";
-                  const corStatus = status === "P" ? "text-green-600" : status === "F" ? "text-red-600" : "text-yellow-600";
-                  return (
-                    <td
-                      key={idxData}
-                      onClick={() => !modoGestao && aluno.id && alternarPresenca(idx, dt)}
-                      className={`border border-black text-center font-black text-sm cursor-pointer select-none transition-all ${corStatus} ${!aluno.id ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                    >
-                      {status || "·"}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="mt-6 p-4 border border-black bg-gray-50 text-[10px] text-gray-600 text-center font-bold">
-          {obterSaudacaoOficial(curso?.oficina)}
-        </div>
-      </div>
-    </div>
-  );
-}
+        {/* CABEÇALHO INSTITUCIONAL */}
+        <div style={{display:"block", marginBottom:"0px", border:"1px solid #4a90d9"}}>
+          <img
+            src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABmAsoDASIAAhEBAxEB/8QAHQABAQACAgMBAAAAAAAAAAAAAAYFBwQIAgMJAf/EAFEQAAAFAwAFCAcCCwUFCAMAAAABAgMEBQYRBxIhMVYTFRhBkpTT1AgUIlFhcYEyNhYjQnV2kaGxtLXRF1JidLIkN1VywSczNWNzgpWj4eLw/8QAGgEBAAIDAQAAAAAAAAAAAAAAAAEFAgMEBv/EADIRAAIBAwMCBAQFBQEBAAAAAAABAgMEERIhMQVBEyJRYQZxgZEUMqGxwRYj0eHwFUL/2gAMAwEAAhEDEQA/AOza7olu1iq06mW5cFU5rkpiyH2HISG+UNlt7Bcq6hR+y6jbjG0efPte4HujvFN8wPHR/wDea/8A9Ikfy2CK8ASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN8wK0ABJc+17ge6O8U3zAc+17ge6O8U3zArQAElz7XuB7o7xTfMBz7XuB7o7xTfMCtAASXPte4HujvFN8wHPte4HujvFN
