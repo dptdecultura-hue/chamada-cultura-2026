@@ -2,23 +2,44 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function CasaDaCultura2026() {
+// Caminhos locais apontando para a sua pasta public
+const URL_LOGO_PREFEITURA = "/logo-prefeitura.png.jpeg";
+const URL_LOGO_CULTURA = "/logo-casa-cultura.png";
+
+// Unidades da Casa da Cultura — adicione/edite aqui se surgir uma quarta unidade
+const UNIDADES = [
+  { id: 'jardim_europa', nome: 'Casa da Cultura - Jardim Europa', label: 'Jardim Europa', accent: 'border-blue-600', txt: 'text-blue-600' },
+  { id: 'centro', nome: 'Casa da Cultura - Centro', label: 'Centro', accent: 'border-emerald-600', txt: 'text-emerald-600' },
+  { id: 'sede', nome: 'Casa da Cultura - Sede (Bela Vista)', label: 'Sede', accent: 'border-orange-600', txt: 'text-orange-600' },
+]
+
+export default function ChamadaTrimestral() {
   const [tela, setTela] = useState('menu')
   const [profSel, setProfSel] = useState("")
   const [filtroOficina, setFiltroOficina] = useState("")
+  const [unidadeSel, setUnidadeSel] = useState("jardim_europa")
   const [idAtivo, setIdAtivo] = useState<any>(null)
-  const [mes, setMes] = useState(new Date().getMonth())
+
+  const [mes, setMes] = useState(6) // Padrão Julho para o bloco Jul/Ago/Set
+
   const [turmas, setTurmas] = useState<any[]>([])
   const [alunosLocais, setAlunosLocais] = useState<any[]>([])
   const [presencas, setPresencas] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [contagemAlunos, setContagemAlunos] = useState<any>({})
-  const [modoGestao, setModoGestao] = useState(false)
 
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
+  const [numLinhas, setNumLinhas] = useState<number>(10)
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+
+  const blocosTrimestrais = [
+    { inicio: 0, nome: "Jan, Fev e Mar" },
+    { inicio: 3, nome: "Abr, Mai e Jun" },
+    { inicio: 6, nome: "Jul, Ago e Set" },
+    { inicio: 9, nome: "Out, Nov e Dez" }
+  ]
 
   const detectarGenero = (nomeCompleto: string) => {
     if (!nomeCompleto) return null;
@@ -43,6 +64,8 @@ export default function CasaDaCultura2026() {
     return 15;
   };
 
+  // numLinhas livre — controlado pelos botões + e − na navbar
+
   useEffect(() => { fetchTurmas(); fetchDadosGlobais(); }, [mes]);
   useEffect(() => { if (idAtivo) fetchDados(); }, [idAtivo, mes]);
 
@@ -52,25 +75,31 @@ export default function CasaDaCultura2026() {
     const contagem: any = {};
     aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1; });
     setContagemAlunos(contagem);
-    if (tData) setTurmas(tData.sort((a:any, b:any) => a.horario.localeCompare(b.horario)));
+    if (tData) setTurmas(tData.sort((a: any, b: any) => a.horario.localeCompare(b.horario)));
     setLoading(false);
   }
 
   async function fetchDadosGlobais() {
+    const mes2 = (mes + 1) % 12;
+    const mes3 = (mes + 2) % 12;
     const { data: alu } = await supabase.from('alunos').select('*');
-    const { data: freq } = await supabase.from('frequencia').select('*').eq('mes', mes);
+    const { data: freq } = await supabase.from('frequencia').select('*').in('mes', [mes, mes2, mes3]);
     if (alu) setTodosAlunos(alu);
     if (freq) setTodasPresencas(freq);
   }
 
   async function fetchDados() {
+    const mes2 = (mes + 1) % 12;
+    const mes3 = (mes + 2) % 12;
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
-    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
+    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).in('mes', [mes, mes2, mes3]);
+
     if (alData) setAlunosLocais(alData);
+
     const gridPre: any = {};
     preData?.forEach(p => {
-      if(p.aluno_id) {
-        if(!gridPre[p.aluno_id]) gridPre[p.aluno_id] = {};
+      if (p.aluno_id) {
+        if (!gridPre[p.aluno_id]) gridPre[p.aluno_id] = {};
         gridPre[p.aluno_id][p.data_aula] = p.status;
       }
     });
@@ -80,12 +109,12 @@ export default function CasaDaCultura2026() {
   const salvarAlunoNoBanco = async (index: number) => {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return null;
-    const payload = { 
-        turma_id: idAtivo, 
-        nome: aluno.nome.trim().toUpperCase(), 
-        telefone: aluno.telefone || "", 
-        genero: detectarGenero(aluno.nome),
-        posicao: index 
+    const payload = {
+      turma_id: idAtivo,
+      nome: aluno.nome.trim().toUpperCase(),
+      telefone: aluno.telefone || "",
+      genero: detectarGenero(aluno.nome),
+      posicao: index
     };
     if (aluno.id) {
       await supabase.from('alunos').update(payload).eq('id', aluno.id);
@@ -103,109 +132,162 @@ export default function CasaDaCultura2026() {
     return null;
   };
 
-  const alternarPresenca = async (index: number, dataAula: string) => {
+  const alternarPresenca = async (index: number, dataAula: string, mesDaAula: number) => {
     let aId = alunosLocais[index].id;
     if (!aId) aId = await salvarAlunoNoBanco(index);
     if (!aId) return;
-    const atual = presencas[aId]?.[dataAula] || "";
-    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
+    const constAtual = presencas[aId]?.[dataAula] || "";
+    let novoStatus = (constAtual === "") ? "P" : (constAtual === "P") ? "F" : (constAtual === "F") ? "J" : "";
     setPresencas((p: any) => ({ ...p, [aId]: { ...(p[aId] || {}), [dataAula]: novoStatus } }));
-    if (novoStatus === "") await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mes);
-    else await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mes, status: novoStatus });
+    if (novoStatus === "") await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mesDaAula);
+    else await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mesDaAula, status: novoStatus });
     fetchDadosGlobais();
-  };
-
-  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
-    if (!novaTurmaId) return;
-    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
-    if (!error) {
-        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
-        fetchTurmas(); fetchDadosGlobais();
-        alert("ALUNO TRANSFERIDO!");
-    }
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
-  const ativosSet = new Set(todasPresencas.filter(f => f.status === 'P').map(f => f.aluno_id));
-  const mulheres = todosAlunos.filter(a => detectarGenero(a.nome) === 'F').length;
-  const homens = todosAlunos.filter(a => detectarGenero(a.nome) === 'M').length;
+  const mes2 = (mes + 1) % 12;
+  const mes3 = (mes + 2) % 12;
 
+  // ════════════════════════════════════════════════════════════
+  // TELA MENU — agora dividida em 3 seções (uma por unidade),
+  // numa única página com rolagem e atalhos de navegação no topo.
+  // ════════════════════════════════════════════════════════════
   if (tela === 'menu') {
-    const listaProfessores = [...new Set(turmas.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
     return (
-      <div className="min-h-screen p-8 bg-[#F8FAFC] italic font-black uppercase text-center">
-        <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-10 gap-6">
+      <div className="min-h-screen bg-[#F8FAFC] italic font-black uppercase text-center pb-20">
+        <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
+
+        <div className="p-8 pb-4">
+          <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-2 gap-6">
             <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
-                CASA DA CULTURA <span className="text-blue-600">2026</span>
+              CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
             </h1>
             <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] font-black">RELATÓRIO DE:</span>
-                <select 
-                    value={mes} 
-                    onChange={e => setMes(Number(e.target.value))} 
-                    className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
-                >
-                    {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                </select>
+              <span className="text-[10px] font-black">BLOCO SELECIONADO:</span>
+              <select
+                value={mes}
+                onChange={e => setMes(Number(e.target.value))}
+                className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
+              >
+                {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+              </select>
             </div>
-        </div>
-        
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block font-black">MATRICULADOS</span>
-                <span className="text-3xl text-blue-600">{todosAlunos.length}</span>
-            </div>
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block font-black text-green-600">ATIVOS ({mesesNomes[mes].substring(0,3)})</span>
-                <span className="text-3xl text-green-600">{ativosSet.size}</span>
-            </div>
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block font-black">MULHERES</span>
-                <span className="text-3xl text-pink-500">{mulheres}</span>
-            </div>
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                <span className="text-[10px] block font-black">HOMENS</span>
-                <span className="text-3xl text-blue-400">{homens}</span>
-            </div>
-            <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000] cursor-pointer hover:bg-black hover:text-white transition-all group" onClick={() => setModoGestao(!modoGestao)}>
-                <span className="text-[10px] block font-black">{modoGestao ? 'FECHAR GESTÃO' : 'MODO GESTÃO'}</span>
-                <span className="text-2xl font-black group-hover:text-red-500">{modoGestao ? 'ATIVO' : 'OFF'}</span>
-            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {listaProfessores.map(p => {
-            const isPiano = p === "MICHEL (PIANO)";
-            const totalAlunos = turmas.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
-            return (
-              <button key={p} onClick={() => {setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setTela('lista');}} className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black">
-                {p}
-                <span className="text-[10px] text-blue-600 mt-2 font-bold italic">{totalAlunos} ALUNOS</span>
-              </button>
-            )
-          })}
+        {/* ATALHOS DE NAVEGAÇÃO ENTRE UNIDADES */}
+        <div className="no-print sticky top-0 z-40 bg-black text-white flex flex-wrap items-center justify-center gap-3 px-8 py-3 mb-10 shadow-md">
+          <span className="text-[10px] font-black uppercase italic mr-2">IR PARA:</span>
+          {UNIDADES.map(u => (
+            <a
+              key={u.id}
+              href={`#${u.id}`}
+              className="text-[11px] font-black italic uppercase border-2 border-white px-3 py-1 hover:bg-white hover:text-black transition-all no-underline"
+            >
+              {u.label}
+            </a>
+          ))}
         </div>
+
+        {UNIDADES.map((u, idx) => {
+          const turmasDaUnidade = turmas.filter(t => (t.unidade || 'jardim_europa') === u.id);
+          const turmaIdsUnidade = new Set(turmasDaUnidade.map(t => t.id));
+          const alunosUnidade = todosAlunos.filter(a => turmaIdsUnidade.has(a.turma_id));
+          const presencasUnidade = todasPresencas.filter(f => turmaIdsUnidade.has(f.turma_id));
+          const ativosSetUnidade = new Set(presencasUnidade.filter(f => f.status === 'P').map(f => f.aluno_id));
+          const mulheresUnidade = alunosUnidade.filter(a => detectarGenero(a.nome) === 'F').length;
+          const homensUnidade = alunosUnidade.filter(a => detectarGenero(a.nome) === 'M').length;
+
+          const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
+
+          return (
+            <div key={u.id} id={u.id} className="px-8">
+              <div className={`flex items-center gap-3 max-w-6xl mx-auto mb-6 border-l-8 ${u.accent} pl-6 text-left`}>
+                <h2 className="text-2xl font-black italic uppercase tracking-tighter">{u.nome}</h2>
+              </div>
+
+              <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
+                  <span className="text-[10px] block font-black">MATRICULADOS</span>
+                  <span className={`text-3xl ${u.txt}`}>{alunosUnidade.length}</span>
+                </div>
+                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
+                  <span className="text-[10px] block font-black text-green-600">ATIVOS (BLOCO)</span>
+                  <span className="text-3xl text-green-600">{ativosSetUnidade.size}</span>
+                </div>
+                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
+                  <span className="text-[10px] block font-black">MULHERES</span>
+                  <span className="text-3xl text-pink-500">{mulheresUnidade}</span>
+                </div>
+                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
+                  <span className="text-[10px] block font-black">HOMENS</span>
+                  <span className="text-3xl text-blue-400">{homensUnidade}</span>
+                </div>
+              </div>
+
+              {listaProfessoresUnidade.length === 0 ? (
+                <p className="max-w-6xl mx-auto text-left text-[11px] text-gray-400 font-bold italic mb-4">
+                  NENHUMA TURMA CADASTRADA NESTA UNIDADE AINDA.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                  {listaProfessoresUnidade.map(p => {
+                    const isPiano = p === "MICHEL (PIANO)";
+                    const totalAlunos = turmasDaUnidade.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => { setProfSel(isPiano ? "MICHEL" : p); setFiltroOficina(isPiano ? "PIANO" : ""); setUnidadeSel(u.id); setTela('lista'); }}
+                        className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black"
+                      >
+                        {p}
+                        <span className={`text-[10px] ${u.txt} mt-2 font-bold italic`}>{totalAlunos} ALUNOS</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {idx < UNIDADES.length - 1 && (
+                <div className="max-w-6xl mx-auto border-t-4 border-dashed border-gray-300 my-12"></div>
+              )}
+            </div>
+          )
+        })}
       </div>
     );
   }
-  
+
+  // ════════════════════════════════════════════════════════════
+  // TELA LISTA — agora filtrada também pela unidade selecionada
+  // ════════════════════════════════════════════════════════════
   if (tela === 'lista') {
-    const turmasDoProf = turmas.filter(t => filtroOficina === "PIANO" ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO")));
+    const turmasDoProf = turmas.filter(t => {
+      const mesmaUnidade = (t.unidade || 'jardim_europa') === unidadeSel;
+      const mesmoProfessor = filtroOficina === "PIANO"
+        ? (t.professor === profSel && t.oficina.toUpperCase().includes("PIANO"))
+        : (t.professor === profSel && !t.oficina.toUpperCase().includes("PIANO"));
+      return mesmaUnidade && mesmoProfessor;
+    });
+
+    const unidadeAtual = UNIDADES.find(u => u.id === unidadeSel) || UNIDADES[0];
+
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
-        <button onClick={() => setTela('menu')} className="text-xs mb-8 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
+        <button onClick={() => setTela('menu')} className="text-xs mb-4 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
+        <p className={`text-xs mb-2 font-bold italic ${unidadeAtual.txt}`}>{unidadeAtual.nome}</p>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {[1, 2].map(d => (
             <div key={d}>
-              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
+              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d === 1 ? 'bg-blue-600' : 'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d === 1 ? 'SEGUNDA E QUARTA' : 'TERÇA E QUINTA'}</h3>
               <div className="space-y-4">
                 {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
                   const n = contagemAlunos[c.id] || 0;
                   const limit = obterLimiteOficina(c.oficina);
                   return (
-                    <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
+                    <div key={c.id} onClick={() => { setIdAtivo(c.id); setTela('chamada'); }} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
                       <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
                       <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
                     </div>
@@ -219,225 +301,267 @@ export default function CasaDaCultura2026() {
     )
   }
 
+  // ════════════════════════════════════════════════════════════
+  // TELA CHAMADA — nome da unidade exibido dinamicamente
+  // ════════════════════════════════════════════════════════════
   const curso = turmas.find(t => t.id === idAtivo);
+  const unidadeInfo = UNIDADES.find(u => u.id === (curso?.unidade || 'jardim_europa')) || UNIDADES[0];
   const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
 
-  const getDatasAulas = () => {
+  const getDatasParaMes = (mesAlvo: number) => {
     const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
-    const datas: string[] = [];
-    const ultimoDia = new Date(2026, mes + 1, 0).getDate();
+    const datas: { formatada: string; diaPuro: string; mesPuro: number }[] = [];
+    const ultimoDia = new Date(2026, mesAlvo + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
-      const dataProd = new Date(2026, mes, d);
+      const dataProd = new Date(2026, mesAlvo, d);
       if (diasAlvo.includes(dataProd.getDay())) {
-        datas.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
+        datas.push({
+          formatada: `${d < 10 ? '0' + d : d}/${mesAlvo + 1 < 10 ? '0' + (mesAlvo + 1) : mesAlvo + 1}`,
+          diaPuro: `${d < 10 ? '0' + d : d}`,
+          mesPuro: mesAlvo
+        });
       }
     }
     return datas;
   };
-  const datasAulas = getDatasAulas();
+
+  const datasMes1 = getDatasParaMes(mes);
+  const datasMes2 = getDatasParaMes(mes2);
+  const datasMes3 = getDatasParaMes(mes3);
+  const todasDatasTrimestral = [...datasMes1, ...datasMes2, ...datasMes3];
 
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white">
+    <div className="min-h-screen font-sans uppercase bg-[#fff] text-black w-full antialiased">
       <title>CASA DA CULTURA 2026</title>
 
-      {/* NAVBAR */}
-      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
-        <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
-          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 5mm 6mm 4mm 6mm;
+          }
+          .no-print { display: none !important; }
+          body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .folha-container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .tabela-wrapper {
+            overflow: visible !important;
+          }
+          table {
+            width: 100% !important;
+            table-layout: fixed !important;
+          }
+        }
+        @media screen {
+          .tabela-wrapper {
+            overflow-x: auto;
+            max-width: 100%;
+            border-bottom: 2.5px solid #000;
+          }
+        }
+      `}</style>
+
+      {/* Controle Superior do App */}
+      <nav className="no-print bg-slate-900 border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
+        <button onClick={() => { setTela('lista'); fetchTurmas(); }} className="text-xs border-2 border-white px-4 py-1.5 bg-transparent text-white font-black italic uppercase hover:bg-white hover:text-black transition-all">← VOLTAR</button>
+        <div className="flex gap-4 items-center">
+          <button onClick={() => setAlunosLocais([...alunosLocais, { nome: "", telefone: "", posicao: alunosLocais.length, id: null }])} className="bg-emerald-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all">NOVO ALUNO +</button>
+          <div className="flex items-center bg-gray-800 text-gray-300 border-2 border-black text-[11px] font-black italic overflow-hidden">
+            <button onClick={() => setNumLinhas(n => Math.max(1, n - 1))} className="px-3 py-1.5 hover:bg-red-700 transition-all select-none">−</button>
+            <span className="px-3 py-1.5 border-x-2 border-black">{numLinhas} LINHAS</span>
+            <button onClick={() => setNumLinhas(n => n + 1)} className="px-3 py-1.5 hover:bg-green-700 transition-all select-none">+</button>
+          </div>
+          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-2 border-black p-1 text-xs font-black bg-white text-black italic uppercase cursor-pointer">
+            {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+          </select>
+          <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-blue-500 transition-all shadow-[2px_2px_0px_#000]">IMPRIMIR PAUTA</button>
         </div>
       </nav>
 
-      {/* FOLHA DE CHAMADA DESIGN FIEL À image_847369.png */}
-      <div className="folha-container mt-4 mb-10" style={{maxWidth:"1100px", margin:"16px auto 40px auto", padding:"0 24px"}}>
+      {/* Folha de Chamada */}
+      <div className="folha-container w-full" style={{ padding: "2px 0", margin: "0 auto" }}>
+        <div style={{ border: "2.5px solid #000", backgroundColor: "#fff" }} className="mx-1 md:mx-2">
 
-        {/* MOLDURA DO CABEÇALHO OFICIAL (PREFEITURA DE TEIXEIRA DE FREITAS) */}
-        <div style={{display:"block", marginBottom:"0px", border:"3px solid #000", padding:"1px"}}>
-          <img
-            src="/cabecalho-teixeira.png" 
-            alt="Prefeitura de Teixeira de Freitas - Secretaria de Cultura e Turismo - Casa da Cultura"
-            style={{display:"block", width:"100%", height:"auto", maxHeight:"120px", objectFit:"contain"}}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
+          {/* Cabeçalho Dividido Simetricamente no Meio com Linha Vertical Física */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", backgroundColor: "#fff", height: "76px", borderBottom: "2.5px solid #000" }}>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: "2.5px solid #000", padding: "4px" }}>
+              <img
+                src={URL_LOGO_PREFEITURA}
+                alt="Prefeitura de Teixeira de Freitas"
+                style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px" }}>
+              <img
+                src={URL_LOGO_CULTURA}
+                alt="Casa da Cultura"
+                style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }}
+              />
+            </div>
+
+          </div>
+
+          {/* Dados Institucionais */}
+          <table className="w-full border-collapse text-[11px] font-bold italic" style={{ borderSpacing: 0, tableLayout: 'fixed' }}>
+            <tbody>
+              <tr>
+                <td style={{ borderRight: "2.5px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="w-1/2">
+                  OFICINEIRO (A)/ PROFESSOR (A): <span className="font-black text-black">{curso?.professor}</span>
+                </td>
+                <td style={{ padding: "5px 10px", backgroundColor: "#fff" }} className="w-1/2">
+                  CURSO: <span className="font-black text-black">{curso?.oficina}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style={{ borderTop: "2px solid #000", borderRight: "2.5px solid #000", padding: "5px 10px", backgroundColor: "#fff" }}>
+                  DIAS DA SEMANA: <span className="font-black text-black">{diasTexto}</span>
+                </td>
+                <td style={{ borderTop: "2px solid #000", padding: "5px 10px", backgroundColor: "#fff" }}>
+                  HORÁRIO: <span className="font-black text-black">{curso?.horario}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style={{ borderTop: "2px solid #000", borderRight: "2.5px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="text-gray-500">
+                  {unidadeInfo.nome.toUpperCase()}
+                </td>
+                <td style={{ borderTop: "2px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="text-center font-black tracking-widest text-black uppercase text-[11px]">
+                  {mesesNomes[mes]}, {mesesNomes[mes2]} E {mesesNomes[mes3]}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Tabela Blindada contra Esmagamento com min-width */}
+          <div className="tabela-wrapper">
+            <table className="border-collapse text-black bg-white" style={{ borderSpacing: 0, width: "100%", minWidth: "1050px", tableLayout: "fixed" }}>
+              <thead>
+                <tr className="text-[10px] font-black border-t-2 border-b-2 border-black">
+                  <th style={{ width: "30px" }} className="bg-white"></th>
+                  <th style={{ width: "320px" }} className="bg-white"></th>
+                  <th colSpan={datasMes1.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#c6d6e6] text-black font-black">{mesesNomes[mes].toUpperCase()}</th>
+                  <th colSpan={datasMes2.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#b3c7db] text-black font-black">{mesesNomes[mes2].toUpperCase()}</th>
+                  <th colSpan={datasMes3.length} className="text-center py-1 italic tracking-wider bg-[#a4bdcf] text-black font-black">{mesesNomes[mes3].toUpperCase()}</th>
+                </tr>
+
+                <tr className="text-[9px] font-black tracking-tight text-center border-b-2 border-black bg-white">
+                  <th style={{ borderRight: "2.5px solid #000", width: "30px" }} className="py-1 italic text-center">Nº</th>
+                  <th style={{ borderRight: "2.5px solid #000", width: "320px" }} className="text-left px-3 italic">NOME DO ALUNO</th>
+
+                  {todasDatasTrimestral.map((dt, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        borderRight: "1px solid #000",
+                        width: "24px",
+                        maxWidth: "24px",
+                        minWidth: "24px"
+                      }}
+                      className="font-black p-0 py-1 italic text-center border-r border-black"
+                    >
+                      {dt.diaPuro}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(numLinhas)].map((_, index) => {
+                  const al = alunosLocais[index];
+
+                  return (
+                    <tr key={index} className="border-b border-black hover:bg-slate-50 transition-colors">
+                      <td style={{ borderRight: "2.5px solid #000", height: "32px", width: "30px" }} className="text-center font-black bg-white text-[11px]">
+                        {index + 1}
+                      </td>
+
+                      <td style={{ borderRight: "2.5px solid #000", width: "320px", padding: "0 8px" }} className="font-black uppercase italic">
+                        <div className="w-full h-full flex items-center">
+                          <input
+                            type="text"
+                            value={al?.nome || ""}
+                            onChange={e => {
+                              const n = [...alunosLocais];
+                              if (!n[index]) n[index] = { nome: "", telefone: "", posicao: index, id: null };
+                              n[index].nome = e.target.value.toUpperCase();
+                              setAlunosLocais(n);
+                            }}
+                            onBlur={() => salvarAlunoNoBanco(index)}
+                            className="w-full bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1"
+                            placeholder=""
+                          />
+                        </div>
+                      </td>
+
+                      {todasDatasTrimestral.map((dt, idx) => {
+                        const status = al?.id ? (presencas[al.id]?.[dt.formatada] || "") : "";
+                        return (
+                          <td
+                            key={idx}
+                            onClick={() => al?.id && alternarPresenca(index, dt.formatada, dt.mesPuro)}
+                            style={{
+                              borderRight: "1px solid #000",
+                              width: "24px",
+                              maxWidth: "24px",
+                              minWidth: "24px",
+                              cursor: al?.id ? "pointer" : "default",
+                              backgroundColor: status === "P" ? "#dcfce7" : status === "F" ? "#fee2e2" : status === "J" ? "#fef9c3" : "transparent",
+                              color: status === "F" ? "#ef4444" : status === "P" ? "#22c55e" : "#eab308"
+                            }}
+                            className="text-center font-black text-xs select-none p-0 border-r border-black"
+                          >
+                            {status}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* BLOCO AZUL DE INFORMAÇÕES DA TURMA */}
-        <table className="w-full border-collapse mb-0" style={{borderSpacing: 0}}>
-          <tbody>
-            <tr>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase w-1/2">
-                OFICINEIRO (A)/ PROFESSOR (A): <span className="font-normal">{curso?.professor}</span>
-              </td>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase w-1/2">
-                CURSO: <span className="font-normal">{curso?.oficina}</span>
-              </td>
-            </tr>
-            <tr>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
-                DIAS DA SEMANA: <span className="font-normal">{diasTexto}</span>
-              </td>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
-                HORÁRIO: <span className="font-normal">{curso?.horario}</span>
-              </td>
-            </tr>
-            <tr>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
-                CASA DE CULTURA - BELA VISTA (SEDE)
-              </td>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] text-center uppercase tracking-widest">
-                {mesesNomes[mes]}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        {/* Rodapé Totalmente Blindado contra Desalinhamento (Uso de Grid Fixo) */}
+        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 240px", alignItems: "end", marginTop: "20px", padding: "0 16px", color: "#000" }}>
 
-        {/* TABELA PRINCIPAL DE CHAMADA (ESTRITA DE 10 LINHAS MÁXIMO) */}
-        <table className="w-full border-collapse mt-0 text-black bg-white" style={{border: "2px solid #000"}}>
-          <thead>
-            <tr className="bg-[#3b82f6] text-white text-[10px] font-black tracking-tight" style={{height: "26px"}}>
-              <th className="border border-black px-1 text-center" style={{width: "40px"}}>ORDEM</th>
-              <th className="border border-black px-3 text-left">NOMES</th>
-              <th className="border border-black px-2 text-center" style={{width: "45px"}}>GÊN.</th>
-              <th className="border border-black px-2 text-center" style={{width: "120px"}}>TELEFONE</th>
-              {datasAulas.map((dt, i) => (
-                <th key={i} className="border border-black text-center font-black text-[10px] px-0" style={{width: "35px", minWidth:"35px"}}>{dt.split('/')[0]}</th>
-              ))}
-              {datasAulas.length < 10 && [...Array(10 - datasAulas.length)].map((_, idx) => (
-                <th key={`v-${idx}`} className="border border-black" style={{width: "35px"}}></th>
-              ))}
-              <th className="border border-black text-center text-[10px]" style={{width: "50px"}}>FALTAS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...Array(10)].map((_, index) => {
-              const al = alunosLocais[index];
-              const gen = al?.nome ? detectarGenero(al.nome) : "";
+          <div style={{ width: "220px", justifySelf: "start" }} className="text-center">
+            <div className="border-t-2 border-black w-full my-1"></div>
+            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">
+              COORDENADOR(A) PEDAGÓGICO(A)
+            </span>
+          </div>
 
-              let totalFaltas = 0;
-              if (al?.id && presencas[al.id]) {
-                Object.values(presencas[al.id]).forEach(status => {
-                  if (status === "F") totalFaltas++;
-                });
-              }
+          <div className="text-center px-4">
+            <p style={{ color: "#475569", fontSize: "9px", lineHeight: "1.2" }} className="font-black italic uppercase tracking-tight">
+              A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {mesesNomes[mes].toLowerCase()}/{mesesNomes[mes2].toLowerCase()}/{mesesNomes[mes3].toLowerCase()}.
+            </p>
+          </div>
 
-              return (
-                <tr key={index} style={{height: "34px"}} className="hover:bg-gray-50 text-[11px]">
-                  <td className="border border-black text-center font-black text-xs">
-                    {index + 1}
-                  </td>
-                  
-                  <td className="border border-black px-3 font-black uppercase relative">
-                    <input
-                      type="text"
-                      value={al?.nome || ""}
-                      onChange={e => {
-                        const n = [...alunosLocais];
-                        if(!n[index]) n[index] = {nome:"", telefone:"", posicao:index, id:null};
-                        n[index].nome = e.target.value.toUpperCase();
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(index)}
-                      className="w-full bg-transparent outline-none font-black uppercase text-xs"
-                      style={{letterSpacing: "-0.3px"}}
-                      placeholder="..."
-                    />
-                    {modoGestao && al?.id && (
-                      <div className="absolute right-1 top-1 bg-white border border-red-500 rounded p-1 z-10 no-print flex gap-1 shadow-md">
-                        <select 
-                          className="text-[9px] font-black cursor-pointer bg-gray-100 p-0.5"
-                          onChange={(e) => transferirAluno(al.id, e.target.value)}
-                          defaultValue=""
-                        >
-                          <option value="" disabled>MOVER</option>
-                          {turmas.filter(t => t.id !== idAtivo).map(t => (
-                            <option key={t.id} value={t.id}>{t.professor} - {t.horario} ({t.oficina})</option>
-                          ))}
-                        </select>
-                        <button 
-                          onClick={async () => {
-                            if(confirm(`REMOVER ${al.nome}?`)) {
-                              await supabase.from('alunos').delete().eq('id', al.id);
-                              setAlunosLocais(alunosLocais.filter(a => a.id !== al.id));
-                              fetchTurmas(); fetchDadosGlobais();
-                            }
-                          }}
-                          className="bg-red-600 text-white font-black text-[9px] px-1 rounded hover:bg-red-700"
-                        >
-                          X
-                        </button>
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="border border-black text-center font-black text-xs text-gray-400 bg-gray-50">
-                    {gen}
-                  </td>
-
-                  <td className="border border-black px-1">
-                    <input
-                      type="text"
-                      value={al?.telefone || ""}
-                      onChange={e => {
-                        const n = [...alunosLocais];
-                        if(!n[index]) n[index] = {nome:"", telefone:"", posicao:index, id:null};
-                        n[index].telefone = e.target.value;
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(index)}
-                      className="w-full bg-transparent outline-none text-center text-[10px] font-bold text-gray-700"
-                      placeholder="-"
-                    />
-                  </td>
-
-                  {datasAulas.map((dt, idx) => {
-                    const status = al?.id ? (presencas[al.id]?.[dt] || "") : "";
-                    return (
-                      <td
-                        key={idx}
-                        onClick={() => al?.id && alternarPresenca(index, dt)}
-                        className="border border-black text-center font-black text-sm select-none transition-colors"
-                        style={{
-                          cursor: al?.id ? "pointer" : "default",
-                          backgroundColor: status === "P" ? "#bbf7d0" : status === "F" ? "#fecaca" : status === "J" ? "#fef08a" : "transparent",
-                          color: status === "F" ? "#dc2626" : status === "P" ? "#16a34a" : "#ca8a04"
-                        }}
-                      >
-                        {status}
-                      </td>
-                    );
-                  })}
-
-                  {datasAulas.length < 10 && [...Array(10 - datasAulas.length)].map((_, idx) => (
-                    <td key={`bc-${idx}`} className="border border-black bg-gray-50 cursor-not-allowed"></td>
-                  ))}
-
-                  <td className="border border-black text-center font-black text-sm">
-                    {totalFaltas}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* CONTAINER DE ASSINATURA */}
-        <div className="w-full flex justify-end mt-12 items-center">
-          <div className="text-right border-t border-black pt-1" style={{width: "320px"}}>
-            <span className="text-[10px] font-black uppercase block tracking-tight">
-              ASSINATURA DO PROFESSOR(A): {curso?.professor}
+          <div style={{ width: "220px", justifySelf: "end" }} className="text-center">
+            <div className="border-t-2 border-black w-full my-1"></div>
+            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">
+              PROFESSOR(A): {curso?.professor}
             </span>
           </div>
         </div>
 
-        {/* NOTA PEDAGÓGICA INALTERADA */}
-        <div style={{border: "1px solid #4a90d9", marginTop: "16px", padding: "8px 12px", background: "#f1f5f9", fontSize: "10px", textAlign: "center", fontStyle: "italic", fontWeight: "bold"}} className="text-gray-700 uppercase tracking-tight">
-          Excelente mês de fevereiro! A unidade da Casa da Cultura do Jardim Europa deseja um ótimo mês de trabalho e música — que a arte continue transformando vidas.
+        <div className="w-full text-center mt-4 text-[7.5px] tracking-widest text-gray-400 font-bold italic">
+          FOLHA DE CONTROLE DE FREQUÊNCIA — CASA DA CULTURA 2026
         </div>
       </div>
     </div>
   );
 }
+
+
