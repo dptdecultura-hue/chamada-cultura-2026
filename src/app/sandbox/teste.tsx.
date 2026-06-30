@@ -13,14 +13,14 @@ const UNIDADES = [
   { id: 'sede', nome: 'Casa da Cultura - Sede (Bela Vista)', label: 'Sede', accent: 'border-orange-600', txt: 'text-orange-600' },
 ]
 
-export default function ChamadaTrimestral() {
+export default function ChamadaMensal() {
   const [tela, setTela] = useState('menu')
   const [profSel, setProfSel] = useState("")
   const [filtroOficina, setFiltroOficina] = useState("")
   const [unidadeSel, setUnidadeSel] = useState("jardim_europa")
   const [idAtivo, setIdAtivo] = useState<any>(null)
 
-  const [mes, setMes] = useState(6) // Padrão Julho para o bloco Jul/Ago/Set
+  const [mes, setMes] = useState(6) // Padrão Julho
 
   const [turmas, setTurmas] = useState<any[]>([])
   const [alunosLocais, setAlunosLocais] = useState<any[]>([])
@@ -31,6 +31,9 @@ export default function ChamadaTrimestral() {
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
   const [numLinhas, setNumLinhas] = useState<number>(10)
+  const VAZIO_TURMA = { id: null, professor: '', oficina: '', horario: '', unidade: 'jardim_europa', dias: [] as number[] }
+  const [turmaForm, setTurmaForm] = useState<any>(VAZIO_TURMA)
+  const [turmaStatus, setTurmaStatus] = useState<{tipo:'ok'|'erro', texto:string}|null>(null)
 
   // Estado da ficha de matrícula
   const VAZIO_MATRICULA = {
@@ -63,12 +66,7 @@ export default function ChamadaTrimestral() {
     return ordenado.map(d => NOMES_DIAS_SEMANA[d]).join(' E ');
   };
 
-  const blocosTrimestrais = [
-    { inicio: 0, nome: "Jan, Fev e Mar" },
-    { inicio: 3, nome: "Abr, Mai e Jun" },
-    { inicio: 6, nome: "Jul, Ago e Set" },
-    { inicio: 9, nome: "Out, Nov e Dez" }
-  ]
+  const mesesOpcoes = mesesNomes.map((nome, index) => ({ valor: index, nome }))
 
   const detectarGenero = (nomeCompleto: string) => {
     if (!nomeCompleto) return null;
@@ -109,19 +107,15 @@ export default function ChamadaTrimestral() {
   }
 
   async function fetchDadosGlobais() {
-    const mes2 = (mes + 1) % 12;
-    const mes3 = (mes + 2) % 12;
     const { data: alu } = await supabase.from('alunos').select('*');
-    const { data: freq } = await supabase.from('frequencia').select('*').in('mes', [mes, mes2, mes3]);
+    const { data: freq } = await supabase.from('frequencia').select('*').eq('mes', mes);
     if (alu) setTodosAlunos(alu);
     if (freq) setTodasPresencas(freq);
   }
 
   async function fetchDados() {
-    const mes2 = (mes + 1) % 12;
-    const mes3 = (mes + 2) % 12;
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
-    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).in('mes', [mes, mes2, mes3]);
+    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
 
     if (alData) setAlunosLocais(alData);
 
@@ -172,11 +166,87 @@ export default function ChamadaTrimestral() {
     else await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mesDaAula, status: novoStatus });
     fetchDadosGlobais();
   };
+  const excluirAlunoDaChamada = async (index: number) => {
+    const aluno = alunosLocais[index];
+    if (!aluno?.id) {
+      setAlunosLocais((lista: any[]) => lista.filter((_, i) => i !== index));
+      return;
+    }
+    const ok = window.confirm(`Remover ${aluno.nome} desta chamada?`);
+    if (!ok) return;
+    await supabase.from('frequencia').delete().eq('aluno_id', aluno.id);
+    await supabase.from('alunos').delete().eq('id', aluno.id);
+    await fetchDados();
+    await fetchTurmas();
+    await fetchDadosGlobais();
+  };
+
+  const limparTurmaForm = () => {
+    setTurmaForm(VAZIO_TURMA);
+    setTurmaStatus(null);
+  };
+
+  const alternarDiaTurma = (dia: number) => {
+    setTurmaForm((t: any) => {
+      const dias = Array.isArray(t.dias) ? t.dias : [];
+      const novoDias = dias.includes(dia) ? dias.filter((d: number) => d !== dia) : [...dias, dia].sort((a, b) => a - b);
+      return { ...t, dias: novoDias };
+    });
+  };
+
+  const editarTurma = (turma: any) => {
+    setTurmaForm({
+      id: turma.id,
+      professor: turma.professor || '',
+      oficina: turma.oficina || '',
+      horario: turma.horario || '',
+      unidade: turma.unidade || 'jardim_europa',
+      dias: Array.isArray(turma.dias) ? turma.dias.map(Number).filter((n: number) => !isNaN(n)) : []
+    });
+    setTurmaStatus(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const salvarTurma = async () => {
+    if (!turmaForm.professor.trim() || !turmaForm.oficina.trim() || !turmaForm.horario.trim() || !turmaForm.dias?.length) {
+      setTurmaStatus({ tipo: 'erro', texto: 'Preencha professor, curso, horário e pelo menos um dia.' });
+      return;
+    }
+    const payload = {
+      professor: turmaForm.professor.trim().toUpperCase(),
+      oficina: turmaForm.oficina.trim().toUpperCase(),
+      horario: turmaForm.horario.trim().toUpperCase(),
+      unidade: turmaForm.unidade || 'jardim_europa',
+      dias: turmaForm.dias
+    };
+    const { error } = turmaForm.id
+      ? await supabase.from('turmas').update(payload).eq('id', turmaForm.id)
+      : await supabase.from('turmas').insert(payload);
+    if (error) {
+      setTurmaStatus({ tipo: 'erro', texto: 'Não foi possível salvar a turma.' });
+      return;
+    }
+    setTurmaForm(VAZIO_TURMA);
+    setTurmaStatus({ tipo: 'ok', texto: turmaForm.id ? 'Turma atualizada.' : 'Turma adicionada.' });
+    fetchTurmas();
+  };
+
+  const excluirTurma = async (turma: any) => {
+    const alunosNaTurma = contagemAlunos[turma.id] || 0;
+    const aviso = alunosNaTurma > 0
+      ? `Esta turma tem ${alunosNaTurma} aluno(s). Excluir mesmo assim?`
+      : `Excluir a turma ${turma.oficina} - ${turma.horario}?`;
+    if (!window.confirm(aviso)) return;
+    await supabase.from('frequencia').delete().eq('turma_id', turma.id);
+    await supabase.from('alunos').delete().eq('turma_id', turma.id);
+    await supabase.from('turmas').delete().eq('id', turma.id);
+    fetchTurmas();
+    fetchDadosGlobais();
+  };
 
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
-  const mes2 = (mes + 1) % 12;
-  const mes3 = (mes + 2) % 12;
+
 
   // ════════════════════════════════════════════════════════════
   // TELA MENU — agora dividida em 3 seções (uma por unidade),
@@ -190,16 +260,16 @@ export default function ChamadaTrimestral() {
         <div className="p-8 pb-4">
           <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-2 gap-6">
             <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
-              CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
+              CASA DA CULTURA <span className="text-blue-600">MENSAL</span>
             </h1>
             <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
-              <span className="text-[10px] font-black">BLOCO SELECIONADO:</span>
+              <span className="text-[10px] font-black">MÊS SELECIONADO:</span>
               <select
                 value={mes}
                 onChange={e => setMes(Number(e.target.value))}
                 className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
               >
-                {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+                {mesesOpcoes.map(m => <option key={m.valor} value={m.valor}>{m.nome}</option>)}
               </select>
             </div>
           </div>
@@ -222,6 +292,12 @@ export default function ChamadaTrimestral() {
             className="text-[11px] font-black italic uppercase border-2 border-yellow-400 text-yellow-400 px-3 py-1 hover:bg-yellow-400 hover:text-black transition-all ml-4"
           >
             + NOVA MATRÍCULA
+          </button>
+          <button
+            onClick={() => setTela('turmas')}
+            className="text-[11px] font-black italic uppercase border-2 border-cyan-300 text-cyan-300 px-3 py-1 hover:bg-cyan-300 hover:text-black transition-all"
+          >
+            TURMAS E HORÁRIOS
           </button>
         </div>
 
@@ -275,6 +351,64 @@ export default function ChamadaTrimestral() {
   // ════════════════════════════════════════════════════════════
   // TELA MATRÍCULA — formulário + ficha impressa fiel ao PDF
   // ════════════════════════════════════════════════════════════
+
+  if (tela === 'turmas') {
+    const turmasOrdenadas = [...turmas].sort((a: any, b: any) => {
+      const unidadeA = (a.unidade || 'jardim_europa').localeCompare(b.unidade || 'jardim_europa');
+      if (unidadeA !== 0) return unidadeA;
+      const profA = (a.professor || '').localeCompare(b.professor || '');
+      if (profA !== 0) return profA;
+      return (a.horario || '').localeCompare(b.horario || '');
+    });
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] p-8 italic font-black uppercase">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setTela('menu')} className="text-xs border-2 border-black px-3 py-1 font-black italic uppercase bg-white">← VOLTAR</button>
+              <h1 className="text-4xl font-black border-l-8 border-black pl-6 tracking-tighter">Turmas e horários</h1>
+            </div>
+            <button onClick={limparTurmaForm} className="bg-black text-white px-4 py-2 text-[11px] border-2 border-black font-black italic hover:bg-white hover:text-black transition-all">LIMPAR FORMULÁRIO</button>
+          </div>
+
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-8">
+            <p className="text-[10px] text-gray-500 mb-4">{turmaForm.id ? 'EDITANDO TURMA' : 'NOVA TURMA'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <div><label className="text-[10px] block mb-1">Professor</label><input value={turmaForm.professor} onChange={e => setTurmaForm((t: any) => ({ ...t, professor: e.target.value.toUpperCase() }))} className="w-full border-2 border-black px-2 py-2 text-sm font-black outline-none" /></div>
+              <div><label className="text-[10px] block mb-1">Curso</label><input value={turmaForm.oficina} onChange={e => setTurmaForm((t: any) => ({ ...t, oficina: e.target.value.toUpperCase() }))} className="w-full border-2 border-black px-2 py-2 text-sm font-black outline-none" /></div>
+              <div><label className="text-[10px] block mb-1">Horário</label><input value={turmaForm.horario} onChange={e => setTurmaForm((t: any) => ({ ...t, horario: e.target.value.toUpperCase() }))} className="w-full border-2 border-black px-2 py-2 text-sm font-black outline-none" placeholder="EX: 14H" /></div>
+              <div><label className="text-[10px] block mb-1">Unidade</label><select value={turmaForm.unidade} onChange={e => setTurmaForm((t: any) => ({ ...t, unidade: e.target.value }))} className="w-full border-2 border-black px-2 py-2 text-sm font-black outline-none bg-white">{UNIDADES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}</select></div>
+              <div className="flex items-end"><button onClick={salvarTurma} className="w-full bg-emerald-600 text-white px-4 py-2 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all">{turmaForm.id ? 'SALVAR ALTERAÇÃO' : 'ADICIONAR TURMA'}</button></div>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-[10px] block mb-2">Dias da semana</label>
+              <div className="flex flex-wrap gap-2">
+                {[1,2,3,4,5,6].map(dia => (
+                  <button key={dia} onClick={() => alternarDiaTurma(dia)} className={`px-3 py-1 text-[10px] border-2 border-black font-black italic transition-all ${turmaForm.dias?.includes(dia) ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-100'}`}>{NOMES_DIAS_SEMANA[dia]}</button>
+                ))}
+              </div>
+            </div>
+            {turmaStatus && <p className={`mt-4 text-[11px] ${turmaStatus.tipo === 'ok' ? 'text-emerald-700' : 'text-red-700'}`}>{turmaStatus.texto}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {turmasOrdenadas.map(t => {
+              const unidade = UNIDADES.find(u => u.id === (t.unidade || 'jardim_europa')) || UNIDADES[0];
+              return (
+                <div key={t.id} className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000] flex items-center justify-between gap-4">
+                  <div><p className={`text-[10px] ${unidade.txt}`}>{unidade.label} • {formatarDiasTexto(Array.isArray(t.dias) ? t.dias : [])}</p><p className="text-xl leading-tight">{t.horario} - {t.oficina}</p><p className="text-[11px] text-gray-500">{t.professor} • {contagemAlunos[t.id] || 0} ALUNOS</p></div>
+                  <div className="flex gap-2 shrink-0"><button onClick={() => editarTurma(t)} className="border-2 border-black bg-white px-3 py-1 text-[10px] hover:bg-black hover:text-white transition-all">EDITAR</button><button onClick={() => excluirTurma(t)} className="border-2 border-red-700 text-red-700 bg-white px-3 py-1 text-[10px] hover:bg-red-700 hover:text-white transition-all">EXCLUIR</button></div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (tela === 'matricula') {
     const AZUL_FAIXA = "#7B9DC7"
     const CURSOS_FICHA = ["VIOLÃO","VIOLINO","VIOLA","VIOLONCELO","PERCUSSÃO/BATERIA","TEORIA MÚSICAL","TÉCNICA VOCAL/CORO","PIANO","MUSICALIZAÇÃO"]
@@ -766,10 +900,7 @@ export default function ChamadaTrimestral() {
     return datas;
   };
 
-  const datasMes1 = getDatasParaMes(mes);
-  const datasMes2 = getDatasParaMes(mes2);
-  const datasMes3 = getDatasParaMes(mes3);
-  const todasDatasTrimestral = [...datasMes1, ...datasMes2, ...datasMes3];
+  const datasMes = getDatasParaMes(mes);
 
   return (
     <div className="min-h-screen font-sans uppercase bg-[#fff] text-black w-full antialiased">
@@ -823,7 +954,7 @@ export default function ChamadaTrimestral() {
             <button onClick={() => setNumLinhas(n => n + 1)} className="px-3 py-1.5 hover:bg-green-700 transition-all select-none">+</button>
           </div>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-2 border-black p-1 text-xs font-black bg-white text-black italic uppercase cursor-pointer">
-            {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+            {mesesOpcoes.map(m => <option key={m.valor} value={m.valor}>{m.nome}</option>)}
           </select>
           <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-blue-500 transition-all shadow-[2px_2px_0px_#000]">IMPRIMIR PAUTA</button>
         </div>
@@ -878,7 +1009,7 @@ export default function ChamadaTrimestral() {
                   {unidadeInfo.nome.toUpperCase()}
                 </td>
                 <td style={{ borderTop: "2px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="text-center font-black tracking-widest text-black uppercase text-[11px]">
-                  {mesesNomes[mes]}, {mesesNomes[mes2]} E {mesesNomes[mes3]}
+                  {mesesNomes[mes]}
                 </td>
               </tr>
             </tbody>
@@ -886,21 +1017,19 @@ export default function ChamadaTrimestral() {
 
           {/* Tabela Blindada contra Esmagamento com min-width */}
           <div className="tabela-wrapper">
-            <table className="border-collapse text-black bg-white" style={{ borderSpacing: 0, width: "100%", minWidth: "1050px", tableLayout: "fixed" }}>
+            <table className="border-collapse text-black bg-white" style={{ borderSpacing: 0, width: "100%", minWidth: "760px", tableLayout: "fixed" }}>
               <thead>
                 <tr className="text-[10px] font-black border-t-2 border-b-2 border-black">
                   <th style={{ width: "30px" }} className="bg-white"></th>
                   <th style={{ width: "320px" }} className="bg-white"></th>
-                  <th colSpan={datasMes1.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#c6d6e6] text-black font-black">{mesesNomes[mes].toUpperCase()}</th>
-                  <th colSpan={datasMes2.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#b3c7db] text-black font-black">{mesesNomes[mes2].toUpperCase()}</th>
-                  <th colSpan={datasMes3.length} className="text-center py-1 italic tracking-wider bg-[#a4bdcf] text-black font-black">{mesesNomes[mes3].toUpperCase()}</th>
+                  <th colSpan={datasMes.length} className="text-center py-1 italic tracking-wider bg-[#c6d6e6] text-black font-black">{mesesNomes[mes].toUpperCase()}</th>
                 </tr>
 
                 <tr className="text-[9px] font-black tracking-tight text-center border-b-2 border-black bg-white">
                   <th style={{ borderRight: "2.5px solid #000", width: "30px" }} className="py-1 italic text-center">Nº</th>
                   <th style={{ borderRight: "2.5px solid #000", width: "320px" }} className="text-left px-3 italic">NOME DO ALUNO</th>
 
-                  {todasDatasTrimestral.map((dt, i) => (
+                  {datasMes.map((dt, i) => (
                     <th
                       key={i}
                       style={{
@@ -921,13 +1050,13 @@ export default function ChamadaTrimestral() {
                   const al = alunosLocais[index];
 
                   return (
-                    <tr key={index} className="border-b border-black hover:bg-slate-50 transition-colors">
+                    <tr key={index} className="border-b border-black hover:bg-slate-50 transition-colors group">
                       <td style={{ borderRight: "2.5px solid #000", height: "32px", width: "30px" }} className="text-center font-black bg-white text-[11px]">
                         {index + 1}
                       </td>
 
                       <td style={{ borderRight: "2.5px solid #000", width: "320px", padding: "0 8px" }} className="font-black uppercase italic">
-                        <div className="w-full h-full flex items-center">
+                        <div className="w-full h-full flex items-center relative">
                           <input
                             type="text"
                             value={al?.nome || ""}
@@ -938,13 +1067,16 @@ export default function ChamadaTrimestral() {
                               setAlunosLocais(n);
                             }}
                             onBlur={() => salvarAlunoNoBanco(index)}
-                            className="w-full bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1"
+                            className="w-full bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1 pr-7"
                             placeholder=""
                           />
+                          {(al?.id || al?.nome) && (
+                            <button type="button" onClick={() => excluirAlunoDaChamada(index)} title="Remover aluno da chamada" className="no-print absolute right-0 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full border border-red-300 text-red-500 text-[10px] leading-none opacity-0 group-hover:opacity-100 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all">×</button>
+                          )}
                         </div>
                       </td>
 
-                      {todasDatasTrimestral.map((dt, idx) => {
+                      {datasMes.map((dt, idx) => {
                         const status = al?.id ? (presencas[al.id]?.[dt.formatada] || "") : "";
                         return (
                           <td
@@ -985,7 +1117,7 @@ export default function ChamadaTrimestral() {
 
           <div className="text-center px-4">
             <p style={{ color: "#475569", fontSize: "9px", lineHeight: "1.2" }} className="font-black italic uppercase tracking-tight">
-              A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {mesesNomes[mes].toLowerCase()}/{mesesNomes[mes2].toLowerCase()}/{mesesNomes[mes3].toLowerCase()}.
+              A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {mesesNomes[mes].toLowerCase()}.
             </p>
           </div>
 
@@ -1004,3 +1136,4 @@ export default function ChamadaTrimestral() {
     </div>
   );
 }
+
