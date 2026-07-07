@@ -2,6 +2,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
+// Caminhos locais apontando para a sua pasta public
+const URL_LOGO_PREFEITURA = "/logo-prefeitura.png.jpeg";
+const URL_LOGO_CULTURA = "/logo-casa-cultura.png";
+
 // Unidades da Casa da Cultura — adicione/edite aqui se surgir uma quarta unidade
 const UNIDADES = [
   { id: 'jardim_europa', nome: 'Casa da Cultura - Jardim Europa', label: 'Jardim Europa', accent: 'border-blue-600', txt: 'text-blue-600' },
@@ -9,24 +13,176 @@ const UNIDADES = [
   { id: 'sede', nome: 'Casa da Cultura - Sede (Bela Vista)', label: 'Sede', accent: 'border-orange-600', txt: 'text-orange-600' },
 ]
 
-export default function CasaDaCultura2026() {
+// Lista de professores para facilitar
+const PROFESSORES = ["MICHEL", "JOÃO", "MARIA", "PEDRO", "ANA", "CARLOS", "FERNANDA", "LUCAS", "CAMILA", "RAFAEL"];
+
+// Dias da semana
+const DIAS_SEMANA = [
+  { id: 0, label: "Domingo" },
+  { id: 1, label: "Segunda" },
+  { id: 2, label: "Terça" },
+  { id: 3, label: "Quarta" },
+  { id: 4, label: "Quinta" },
+  { id: 5, label: "Sexta" },
+  { id: 6, label: "Sábado" }
+];
+
+// ════════════════════════════════════════════════════════════
+// SISTEMA DINÂMICO DE LIMITES POR OFICINA
+// ════════════════════════════════════════════════════════════
+const LIMITES_OFICINAS: Record<string, number> = {
+  // Cordas
+  'VIOLÃO': 15,
+  'VIOLINO': 10,
+  'VIOLA': 3,
+  'VIOLONCELO': 3,
+  'CONTRABAIXO': 5,
+  
+  // Teclas
+  'PIANO': 2,
+  'TECLADO': 4,
+  
+  // Sopros
+  'FLAUTA DOCE': 10,
+  'FLAUTA TRANSVERSAL': 1,
+  'SAXOFONE': 3,
+  'CLARINETE': 3,
+  
+  // Percussão
+  'BATERIA': 8,
+  'PERCUSSÃO': 10,
+  
+  // Voz
+  'CANTO': 15,
+  'CORAL': 20,
+  'TÉCNICA VOCAL': 12,
+  
+  // Teoria
+  'TEORIA MUSICAL': 15,
+  'MUSICALIZAÇÃO': 12,
+  
+  // Outros
+  'UKULELE': 10,
+  'CAVAQUINHO': 10,
+  'BANDOLIM': 8,
+};
+
+const obterLimiteOficina = (oficina: string): number => {
+  if (!oficina) return 15;
+  
+  const of = oficina.toUpperCase().trim();
+  
+  // Busca exata
+  if (LIMITES_OFICINAS[of]) return LIMITES_OFICINAS[of];
+  
+  // Busca parcial (ex: "VIOLÃO ERUDITO" encontra "VIOLÃO")
+  for (const [key, value] of Object.entries(LIMITES_OFICINAS)) {
+    if (of.includes(key) || key.includes(of)) {
+      return value;
+    }
+  }
+  
+  return 15; // valor padrão se não encontrar
+};
+
+// Funções de cores baseadas na lotação
+const getCorLotacao = (alunos: number, limite: number): string => {
+  if (limite === 0) return 'text-gray-500';
+  const percentual = (alunos / limite) * 100;
+  
+  if (percentual >= 90) return 'text-red-600';     // 🔴 Vermelho - lotado
+  if (percentual >= 70) return 'text-yellow-600';  // 🟡 Amarelo - alerta
+  return 'text-green-600';                          // 🟢 Verde - tranquilo
+};
+
+const getBgCorLotacao = (alunos: number, limite: number): string => {
+  if (limite === 0) return 'bg-gray-50';
+  const percentual = (alunos / limite) * 100;
+  
+  if (percentual >= 90) return 'bg-red-100 border-red-600';
+  if (percentual >= 70) return 'bg-yellow-50 border-yellow-600';
+  return 'bg-white border-black';
+};
+
+const getIconeLotacao = (alunos: number, limite: number): string => {
+  if (limite === 0) return '⚪';
+  const percentual = (alunos / limite) * 100;
+  
+  if (percentual >= 90) return '🔴';
+  if (percentual >= 70) return '🟡';
+  return '🟢';
+};
+
+export default function ChamadaTrimestral() {
   const [tela, setTela] = useState('menu')
   const [profSel, setProfSel] = useState("")
   const [filtroOficina, setFiltroOficina] = useState("")
   const [unidadeSel, setUnidadeSel] = useState("jardim_europa")
   const [idAtivo, setIdAtivo] = useState<any>(null)
-  const [mes, setMes] = useState(new Date().getMonth())
+
+  const [mes, setMes] = useState(6) // Padrão Julho para o bloco Jul/Ago/Set
+
   const [turmas, setTurmas] = useState<any[]>([])
   const [alunosLocais, setAlunosLocais] = useState<any[]>([])
   const [presencas, setPresencas] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [contagemAlunos, setContagemAlunos] = useState<any>({})
-  const [modoGestao, setModoGestao] = useState(false)
 
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
   const [todasPresencas, setTodasPresencas] = useState<any[]>([])
+  const [numLinhas, setNumLinhas] = useState<number>(10)
+
+  // Estado da ficha de matrícula
+  const VAZIO_MATRICULA = {
+    curso: '', diasCurso: '', horario: '', nivel: '', unidade: 'jardim_europa',
+    nomeCompleto: '', nomeSocial: '', cpfRg: '', dataNascimento: '', telefone: '',
+    idade: '', whatsapp: '', genero: '', escola: '', nis: '',
+    respNome: '', respCpf: '', respTelefone: '', respProfissao: '',
+    enderecoRua: '', enderecoBairro: '', enderecoNumero: '', enderecoCidade: '',
+    alergias: '', alergiasQuais: '', problemasSaude: '', problemasSaudeQuais: '',
+    tipoSanguineo: '', susNumero: '',
+    termoDocumentoTipo: '', termoDocumentoNumero: '', termoCedulaAluno: '',
+    termoDia: '', termoMes: '', termoMesResponsabilidade: '',
+  }
+  const [matriculaFicha, setMatriculaFicha] = useState<any>(VAZIO_MATRICULA)
+  const [matriculaSalvando, setMatriculaSalvando] = useState(false)
+  const [matriculaStatus, setMatriculaStatus] = useState<{tipo:'ok'|'erro', texto:string}|null>(null)
+
+  // ════════════════════════════════════════════════════════════
+  // ESTADOS PARA GERENCIAMENTO DE TURMAS
+  // ════════════════════════════════════════════════════════════
+  const [editandoTurma, setEditandoTurma] = useState<any>(null)
+  const [mostrarFormTurma, setMostrarFormTurma] = useState(false)
+  const [turmaForm, setTurmaForm] = useState({
+    professor: '',
+    oficina: '',
+    horario: '',
+    unidade: 'jardim_europa',
+    dias: [] as number[],
+  })
+  const [mensagemTurma, setMensagemTurma] = useState<{tipo:'ok'|'erro', texto:string}|null>(null)
+
+  const atualizarFicha = (campo: string, valor: string) =>
+    setMatriculaFicha((d: any) => ({ ...d, [campo]: valor }))
 
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+
+  // Convenção: 0=Domingo, 1=Segunda, 2=Terça, 3=Quarta, 4=Quinta, 5=Sexta, 6=Sábado
+  const NOMES_DIAS_SEMANA = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"]
+
+  // Transforma um array de dias (ex: [2] ou [1,3]) no texto de exibição (ex: "TERÇA" ou "SEGUNDA E QUARTA")
+  const formatarDiasTexto = (diasArr: number[]) => {
+    if (!diasArr || diasArr.length === 0) return "DIA NÃO DEFINIDO";
+    const ordenado = [...diasArr].map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    return ordenado.map(d => NOMES_DIAS_SEMANA[d]).join(' E ');
+  };
+
+  const blocosTrimestrais = [
+    { inicio: 0, nome: "Jan, Fev e Mar" },
+    { inicio: 3, nome: "Abr, Mai e Jun" },
+    { inicio: 6, nome: "Jul, Ago e Set" },
+    { inicio: 9, nome: "Out, Nov e Dez" }
+  ]
 
   const detectarGenero = (nomeCompleto: string) => {
     if (!nomeCompleto) return null;
@@ -38,28 +194,6 @@ export default function CasaDaCultura2026() {
     return nome.endsWith('A') ? 'F' : 'M';
   };
 
-  const obterLimiteOficina = (oficina: string) => {
-    const o = oficina?.toUpperCase() || "";
-    if (o.includes("FLAUTA DOCE")) return 10;
-    if (o.includes("FLAUTA TRANSVERSAL") || o === "FLAUTA") return 1;
-    if (o.includes("CANTO") || o.includes("CORAL")) return 15;
-    if (o.includes("PIANO")) return 2;
-    if (o.includes("VIOLONCELO") || o.includes("VIOLA")) return 3;
-    if (o.includes("VIOLINO")) return 10;
-    if (o.includes("VIOLÃO")) return 15;
-    if (o.includes("BATERIA") || o.includes("PERCUSSÃO")) return 10;
-    return 15;
-  };
-
-  // Cor do card de turma — só se aplica quando o limite da oficina é 10:
-  // vermelho = turma cheia, amarelo = metade ou mais, sem cor = muitas vagas ainda
-  const obterCorOcupacao = (n: number, limit: number) => {
-    if (limit !== 10) return { borda: "border-black", fundo: "bg-white" };
-    if (n >= limit) return { borda: "border-red-600", fundo: "bg-red-50" };
-    if (n >= limit / 2) return { borda: "border-yellow-500", fundo: "bg-yellow-50" };
-    return { borda: "border-black", fundo: "bg-white" };
-  };
-
   useEffect(() => { fetchTurmas(); fetchDadosGlobais(); }, [mes]);
   useEffect(() => { if (idAtivo) fetchDados(); }, [idAtivo, mes]);
 
@@ -69,25 +203,31 @@ export default function CasaDaCultura2026() {
     const contagem: any = {};
     aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1; });
     setContagemAlunos(contagem);
-    if (tData) setTurmas(tData.sort((a:any, b:any) => a.horario.localeCompare(b.horario)));
+    if (tData) setTurmas(tData.sort((a: any, b: any) => a.horario.localeCompare(b.horario)));
     setLoading(false);
   }
 
   async function fetchDadosGlobais() {
+    const mes2 = (mes + 1) % 12;
+    const mes3 = (mes + 2) % 12;
     const { data: alu } = await supabase.from('alunos').select('*');
-    const { data: freq } = await supabase.from('frequencia').select('*').eq('mes', mes);
+    const { data: freq } = await supabase.from('frequencia').select('*').in('mes', [mes, mes2, mes3]);
     if (alu) setTodosAlunos(alu);
     if (freq) setTodasPresencas(freq);
   }
 
   async function fetchDados() {
+    const mes2 = (mes + 1) % 12;
+    const mes3 = (mes + 2) % 12;
     const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true });
-    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).eq('mes', mes);
+    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).in('mes', [mes, mes2, mes3]);
+
     if (alData) setAlunosLocais(alData);
+
     const gridPre: any = {};
     preData?.forEach(p => {
-      if(p.aluno_id) {
-        if(!gridPre[p.aluno_id]) gridPre[p.aluno_id] = {};
+      if (p.aluno_id) {
+        if (!gridPre[p.aluno_id]) gridPre[p.aluno_id] = {};
         gridPre[p.aluno_id][p.data_aula] = p.status;
       }
     });
@@ -97,12 +237,12 @@ export default function CasaDaCultura2026() {
   const salvarAlunoNoBanco = async (index: number) => {
     const aluno = alunosLocais[index];
     if (!aluno?.nome || aluno.nome.trim() === "") return null;
-    const payload = { 
-        turma_id: idAtivo, 
-        nome: aluno.nome.trim().toUpperCase(), 
-        telefone: aluno.telefone || "", 
-        genero: detectarGenero(aluno.nome),
-        posicao: index 
+    const payload = {
+      turma_id: idAtivo,
+      nome: aluno.nome.trim().toUpperCase(),
+      telefone: aluno.telefone || "",
+      genero: detectarGenero(aluno.nome),
+      posicao: index
     };
     if (aluno.id) {
       await supabase.from('alunos').update(payload).eq('id', aluno.id);
@@ -120,37 +260,170 @@ export default function CasaDaCultura2026() {
     return null;
   };
 
-  const alternarPresenca = async (index: number, dataAula: string) => {
+  const alternarPresenca = async (index: number, dataAula: string, mesDaAula: number) => {
     let aId = alunosLocais[index].id;
     if (!aId) aId = await salvarAlunoNoBanco(index);
     if (!aId) return;
-    const atual = presencas[aId]?.[dataAula] || "";
-    let novoStatus = (atual === "") ? "P" : (atual === "P") ? "F" : (atual === "F") ? "J" : "";
+    const constAtual = presencas[aId]?.[dataAula] || "";
+    let novoStatus = (constAtual === "") ? "P" : (constAtual === "P") ? "F" : (constAtual === "F") ? "J" : "";
     setPresencas((p: any) => ({ ...p, [aId]: { ...(p[aId] || {}), [dataAula]: novoStatus } }));
-    if (novoStatus === "") await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mes);
-    else await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mes, status: novoStatus });
+    if (novoStatus === "") await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mesDaAula);
+    else await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mesDaAula, status: novoStatus });
     fetchDadosGlobais();
   };
 
-  const transferirAluno = async (alunoId: any, novaTurmaId: any) => {
-    if (!novaTurmaId) return;
-    const { error } = await supabase.from('alunos').update({ turma_id: novaTurmaId }).eq('id', alunoId);
-    if (!error) {
-        setAlunosLocais(alunosLocais.filter(a => a.id !== alunoId));
-        fetchTurmas(); fetchDadosGlobais();
-        alert("ALUNO TRANSFERIDO!");
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÕES DE GERENCIAMENTO DE TURMAS
+  // ════════════════════════════════════════════════════════════
+
+  const resetarFormTurma = () => {
+    setTurmaForm({
+      professor: '',
+      oficina: '',
+      horario: '',
+      unidade: 'jardim_europa',
+      dias: [],
+    });
+    setEditandoTurma(null);
+    setMensagemTurma(null);
+  };
+
+  const abrirFormEditar = (turma: any) => {
+    setEditandoTurma(turma);
+    setTurmaForm({
+      professor: turma.professor || '',
+      oficina: turma.oficina || '',
+      horario: turma.horario || '',
+      unidade: turma.unidade || 'jardim_europa',
+      dias: turma.dias || [],
+    });
+    setMostrarFormTurma(true);
+    setMensagemTurma(null);
+  };
+
+  const toggleDiaTurma = (diaId: number) => {
+    setTurmaForm(prev => {
+      const dias = prev.dias.includes(diaId) 
+        ? prev.dias.filter(d => d !== diaId) 
+        : [...prev.dias, diaId];
+      return { ...prev, dias };
+    });
+  };
+
+  const salvarTurma = async () => {
+    // Validações
+    if (!turmaForm.professor.trim()) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Informe o nome do professor!' });
+      return;
+    }
+    if (!turmaForm.oficina.trim()) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Informe o nome da oficina/curso!' });
+      return;
+    }
+    if (!turmaForm.horario.trim()) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Informe o horário!' });
+      return;
+    }
+    if (turmaForm.dias.length === 0) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Selecione pelo menos um dia da semana!' });
+      return;
+    }
+
+    setMensagemTurma(null);
+
+    const payload = {
+      professor: turmaForm.professor.toUpperCase().trim(),
+      oficina: turmaForm.oficina.toUpperCase().trim(),
+      horario: turmaForm.horario.trim(),
+      unidade: turmaForm.unidade,
+      dias: turmaForm.dias.sort((a, b) => a - b),
+    };
+
+    try {
+      if (editandoTurma) {
+        // EDITAR
+        const { error } = await supabase
+          .from('turmas')
+          .update(payload)
+          .eq('id', editandoTurma.id);
+        
+        if (error) throw error;
+        setMensagemTurma({ tipo: 'ok', texto: 'Turma atualizada com sucesso!' });
+      } else {
+        // CRIAR
+        const { error } = await supabase
+          .from('turmas')
+          .insert(payload);
+        
+        if (error) throw error;
+        setMensagemTurma({ tipo: 'ok', texto: 'Turma criada com sucesso!' });
+      }
+      
+      await fetchTurmas();
+      resetarFormTurma();
+      setMostrarFormTurma(false);
+      
+      // Limpa mensagem após 3 segundos
+      setTimeout(() => setMensagemTurma(null), 3000);
+    } catch (error: any) {
+      console.error('Erro ao salvar turma:', error);
+      setMensagemTurma({ tipo: 'erro', texto: error.message || 'Erro ao salvar turma!' });
+    }
+  };
+
+  const excluirTurma = async (turmaId: string) => {
+    // Verifica se há alunos na turma
+    const { data: alunos } = await supabase
+      .from('alunos')
+      .select('id')
+      .eq('turma_id', turmaId);
+    
+    if (alunos && alunos.length > 0) {
+      if (!confirm(`Esta turma tem ${alunos.length} aluno(s). Deseja excluir mesmo assim? Os alunos serão removidos também.`)) {
+        return;
+      }
+      
+      // Remove alunos da turma
+      await supabase
+        .from('alunos')
+        .delete()
+        .eq('turma_id', turmaId);
+      
+      // Remove frequências
+      await supabase
+        .from('frequencia')
+        .delete()
+        .eq('turma_id', turmaId);
+    } else {
+      if (!confirm('Tem certeza que deseja excluir esta turma?')) {
+        return;
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from('turmas')
+        .delete()
+        .eq('id', turmaId);
+      
+      if (error) throw error;
+      
+      await fetchTurmas();
+      setMensagemTurma({ tipo: 'ok', texto: 'Turma excluída com sucesso!' });
+      setTimeout(() => setMensagemTurma(null), 3000);
+    } catch (error: any) {
+      console.error('Erro ao excluir turma:', error);
+      setMensagemTurma({ tipo: 'erro', texto: error.message || 'Erro ao excluir turma!' });
     }
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
-  const ativosSet = new Set(todasPresencas.filter(f => f.status === 'P').map(f => f.aluno_id));
-  const mulheres = todosAlunos.filter(a => detectarGenero(a.nome) === 'F').length;
-  const homens = todosAlunos.filter(a => detectarGenero(a.nome) === 'M').length;
+  const mes2 = (mes + 1) % 12;
+  const mes3 = (mes + 2) % 12;
 
   // ════════════════════════════════════════════════════════════
-  // TELA MENU — dividida em 3 seções (uma por unidade), com
-  // atalhos de navegação no topo, igual ao código trimestral.
+  // TELA MENU
   // ════════════════════════════════════════════════════════════
   if (tela === 'menu') {
     return (
@@ -158,43 +431,28 @@ export default function CasaDaCultura2026() {
         <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
 
         <div className="p-8 pb-4">
-          <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-6 gap-6">
-              <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
-                  CASA DA CULTURA <span className="text-blue-600">2026</span>
-              </h1>
+          <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-2 gap-6">
+            <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
+              CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
+            </h1>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setTela('gerenciar_turmas')}
+                className="bg-black text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-white hover:text-black transition-all"
+              >
+                ⚙ GERENCIAR TURMAS
+              </button>
               <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] font-black">RELATÓRIO DE:</span>
-                  <select 
-                      value={mes} 
-                      onChange={e => setMes(Number(e.target.value))} 
-                      className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
-                  >
-                      {mesesNomes.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                  </select>
+                <span className="text-[10px] font-black">BLOCO:</span>
+                <select
+                  value={mes}
+                  onChange={e => setMes(Number(e.target.value))}
+                  className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
+                >
+                  {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+                </select>
               </div>
-          </div>
-
-          <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-              <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black">MATRICULADOS</span>
-                  <span className="text-3xl text-blue-600">{todosAlunos.length}</span>
-              </div>
-              <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black text-green-600">ATIVOS ({mesesNomes[mes].substring(0,3)})</span>
-                  <span className="text-3xl text-green-600">{ativosSet.size}</span>
-              </div>
-              <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black">MULHERES</span>
-                  <span className="text-3xl text-pink-500">{mulheres}</span>
-              </div>
-              <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black">HOMENS</span>
-                  <span className="text-3xl text-blue-400">{homens}</span>
-              </div>
-              <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000] cursor-pointer hover:bg-black hover:text-white transition-all group" onClick={() => setModoGestao(!modoGestao)}>
-                  <span className="text-[10px] block font-black">{modoGestao ? 'FECHAR GESTÃO' : 'MODO GESTÃO'}</span>
-                  <span className="text-2xl font-black group-hover:text-red-500">{modoGestao ? 'ATIVO' : 'OFF'}</span>
-              </div>
+            </div>
           </div>
         </div>
 
@@ -210,6 +468,12 @@ export default function CasaDaCultura2026() {
               {u.label}
             </a>
           ))}
+          <button
+            onClick={() => setTela('matricula')}
+            className="text-[11px] font-black italic uppercase border-2 border-yellow-400 text-yellow-400 px-3 py-1 hover:bg-yellow-400 hover:text-black transition-all ml-4"
+          >
+            + NOVA MATRÍCULA
+          </button>
         </div>
 
         {UNIDADES.map((u, idx) => {
@@ -217,13 +481,17 @@ export default function CasaDaCultura2026() {
           const turmaIdsUnidade = new Set(turmasDaUnidade.map(t => t.id));
           const alunosUnidade = todosAlunos.filter(a => turmaIdsUnidade.has(a.turma_id));
 
-          const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
+          // Ajuste para Piano
+          const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => 
+            t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor
+          ))].sort();
 
           return (
             <div key={u.id} id={u.id} className="px-8">
               <div className={`flex items-center gap-3 max-w-6xl mx-auto mb-6 border-l-8 ${u.accent} pl-6 text-left`}>
                 <h2 className="text-2xl font-black italic uppercase tracking-tighter">{u.nome}</h2>
                 <span className="text-sm font-bold italic text-gray-400 normal-case">{alunosUnidade.length} alunos</span>
+                <span className="text-sm font-bold italic text-gray-400 normal-case">{turmasDaUnidade.length} turmas</span>
               </div>
 
               {listaProfessoresUnidade.length === 0 ? (
@@ -234,7 +502,19 @@ export default function CasaDaCultura2026() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                   {listaProfessoresUnidade.map(p => {
                     const isPiano = p === "MICHEL (PIANO)";
-                    const totalAlunos = turmasDaUnidade.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+                    const turmasDoProfessor = turmasDaUnidade.filter(t => 
+                      isPiano 
+                        ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) 
+                        : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))
+                    );
+                    const totalAlunos = turmasDoProfessor.reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+                    
+                    // Pega a primeira turma para obter o limite (assumindo que todas do mesmo professor têm o mesmo limite)
+                    const turmaExemplo = turmasDoProfessor[0];
+                    const limite = turmaExemplo ? obterLimiteOficina(turmaExemplo.oficina) : 15;
+                    const cor = getCorLotacao(totalAlunos, limite);
+                    const icone = getIconeLotacao(totalAlunos, limite);
+
                     return (
                       <button
                         key={p}
@@ -242,7 +522,9 @@ export default function CasaDaCultura2026() {
                         className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black"
                       >
                         {p}
-                        <span className={`text-[10px] ${u.txt} mt-2 font-bold italic`}>{totalAlunos} ALUNOS</span>
+                        <span className={`text-[10px] mt-2 font-bold italic ${cor}`}>
+                          {icone} {totalAlunos} / {limite} ALUNOS
+                        </span>
                       </button>
                     )
                   })}
@@ -258,9 +540,610 @@ export default function CasaDaCultura2026() {
       </div>
     );
   }
-  
+
   // ════════════════════════════════════════════════════════════
-  // TELA LISTA — agora também filtrada pela unidade selecionada
+  // TELA GERENCIAR TURMAS
+  // ════════════════════════════════════════════════════════════
+  if (tela === 'gerenciar_turmas') {
+    // Agrupa turmas por unidade para exibição
+    const turmasPorUnidade = UNIDADES.map(u => ({
+      ...u,
+      turmas: turmas.filter(t => (t.unidade || 'jardim_europa') === u.id)
+    }));
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Cabeçalho */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <button 
+                onClick={() => setTela('menu')} 
+                className="text-xs border-2 border-black px-4 py-2 font-black italic uppercase bg-white hover:bg-black hover:text-white transition-all mr-4"
+              >
+                ← VOLTAR
+              </button>
+              <h1 className="text-4xl font-black italic inline-block border-l-8 border-black pl-4">
+                GERENCIAR <span className="text-blue-600">TURMAS</span>
+              </h1>
+            </div>
+            <button
+              onClick={() => {
+                resetarFormTurma();
+                setMostrarFormTurma(true);
+              }}
+              className="bg-emerald-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-emerald-500 transition-all"
+            >
+              + NOVA TURMA
+            </button>
+          </div>
+
+          {/* Mensagem de Status */}
+          {mensagemTurma && (
+            <div className={`mb-6 px-4 py-3 border-4 border-black font-bold text-sm ${
+              mensagemTurma.tipo === 'ok' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {mensagemTurma.texto}
+            </div>
+          )}
+
+          {/* Formulário de Turma (modal inline) */}
+          {mostrarFormTurma && (
+            <div className="bg-white border-4 border-black p-6 mb-8 shadow-[6px_6px_0px_#000]">
+              <h2 className="text-2xl font-black italic mb-4">
+                {editandoTurma ? 'EDITAR TURMA' : 'NOVA TURMA'}
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Professor *</label>
+                  <input
+                    type="text"
+                    value={turmaForm.professor}
+                    onChange={e => setTurmaForm({ ...turmaForm, professor: e.target.value.toUpperCase() })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold uppercase outline-none"
+                    placeholder="Nome do professor"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Oficina/Curso *</label>
+                  <input
+                    type="text"
+                    value={turmaForm.oficina}
+                    onChange={e => setTurmaForm({ ...turmaForm, oficina: e.target.value.toUpperCase() })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold uppercase outline-none"
+                    placeholder="Ex: VIOLÃO, PIANO, CANTO..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Horário *</label>
+                  <input
+                    type="text"
+                    value={turmaForm.horario}
+                    onChange={e => setTurmaForm({ ...turmaForm, horario: e.target.value })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold outline-none"
+                    placeholder="Ex: 14:00 - 15:30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Unidade *</label>
+                  <select
+                    value={turmaForm.unidade}
+                    onChange={e => setTurmaForm({ ...turmaForm, unidade: e.target.value })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold outline-none"
+                  >
+                    {UNIDADES.map(u => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black uppercase mb-2">Dias da Semana * (selecione um ou mais)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {DIAS_SEMANA.map(dia => (
+                      <button
+                        key={dia.id}
+                        onClick={() => toggleDiaTurma(dia.id)}
+                        className={`px-4 py-2 border-2 border-black font-bold text-sm transition-all ${
+                          turmaForm.dias.includes(dia.id) 
+                            ? 'bg-black text-white' 
+                            : 'bg-white text-black hover:bg-gray-100'
+                        }`}
+                      >
+                        {dia.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    {turmaForm.dias.length > 0 ? `Dias selecionados: ${turmaForm.dias.map(d => DIAS_SEMANA.find(dia => dia.id === d)?.label).join(', ')}` : 'Nenhum dia selecionado'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={salvarTurma}
+                  className="bg-blue-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-blue-500 transition-all"
+                >
+                  {editandoTurma ? 'ATUALIZAR TURMA' : 'CRIAR TURMA'}
+                </button>
+                <button
+                  onClick={() => {
+                    resetarFormTurma();
+                    setMostrarFormTurma(false);
+                  }}
+                  className="bg-gray-200 px-6 py-3 font-black uppercase italic text-sm border-4 border-black hover:bg-gray-300 transition-all"
+                >
+                  CANCELAR
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Lista de Turmas por Unidade */}
+          {turmasPorUnidade.map(unidade => (
+            <div key={unidade.id} className="mb-12">
+              <div className={`flex items-center gap-3 border-l-8 ${unidade.accent} pl-4 mb-4`}>
+                <h2 className="text-2xl font-black italic">{unidade.nome}</h2>
+                <span className="text-sm text-gray-500 font-bold">{unidade.turmas.length} turmas</span>
+              </div>
+
+              {unidade.turmas.length === 0 ? (
+                <p className="text-gray-400 font-bold italic text-sm pl-4">Nenhuma turma cadastrada nesta unidade.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {unidade.turmas.map(turma => {
+                    const alunos = contagemAlunos[turma.id] || 0;
+                    const limite = obterLimiteOficina(turma.oficina);
+                    const cor = getCorLotacao(alunos, limite);
+                    const bgCor = getBgCorLotacao(alunos, limite);
+                    const icone = getIconeLotacao(alunos, limite);
+
+                    return (
+                      <div key={turma.id} className={`bg-white border-4 p-4 shadow-[4px_4px_0px_#000] ${bgCor}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-black text-lg">{turma.oficina}</h3>
+                            <p className="text-sm font-bold">{turma.professor}</p>
+                            <p className="text-xs text-gray-600 font-bold">{turma.horario}</p>
+                            <p className="text-xs font-bold italic mt-1">
+                              {formatarDiasTexto(turma.dias)}
+                            </p>
+                            <p className={`text-xs font-bold mt-1 ${cor}`}>
+                              {icone} Alunos: {alunos} / {limite} 
+                              ({Math.round((alunos/limite)*100)}%)
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => abrirFormEditar(turma)}
+                              className="bg-yellow-400 text-black px-3 py-1 text-[10px] font-black uppercase border-2 border-black hover:bg-yellow-300 transition-all"
+                            >
+                              ✎ EDITAR
+                            </button>
+                            <button
+                              onClick={() => excluirTurma(turma.id)}
+                              className="bg-red-600 text-white px-3 py-1 text-[10px] font-black uppercase border-2 border-black hover:bg-red-500 transition-all"
+                            >
+                              ✕ EXCLUIR
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TELA MATRÍCULA
+  // ════════════════════════════════════════════════════════════
+  if (tela === 'matricula') {
+    const AZUL_FAIXA = "#7B9DC7"
+    const CURSOS_FICHA = ["VIOLÃO","VIOLINO","VIOLA","VIOLONCELO","PERCUSSÃO/BATERIA","TEORIA MÚSICAL","TÉCNICA VOCAL/CORO","PIANO","MUSICALIZAÇÃO"]
+    const UNIDADES_LABEL: Record<string,string> = { jardim_europa:"JARDIM EUROPA", centro:"CENTRO", sede:"SEDE" }
+    const hoje = new Date().toLocaleDateString('pt-BR')
+    const faixa = "text-center font-bold uppercase text-sm py-1 border border-black"
+
+    const salvarMatricula = async () => {
+      if (!matriculaFicha.nomeCompleto.trim()) {
+        setMatriculaStatus({ tipo:'erro', texto:'Preencha pelo menos o nome completo do aluno.' })
+        return
+      }
+      setMatriculaSalvando(true)
+      setMatriculaStatus(null)
+      try {
+        const resp = await fetch('/api/matricula', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...matriculaFicha, dataMatricula: hoje }),
+        })
+        const json = await resp.json()
+        if (!resp.ok) throw new Error(json.erro || 'Erro desconhecido')
+        setMatriculaStatus({ tipo:'ok', texto:'Salvo com sucesso! Agora imprima para colher as assinaturas.' })
+      } catch (e: any) {
+        setMatriculaStatus({ tipo:'erro', texto: e.message || 'Erro ao salvar.' })
+      } finally {
+        setMatriculaSalvando(false)
+      }
+    }
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] font-sans">
+        <style jsx global>{`
+          @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            .no-print { display: none !important; }
+            body { background: #fff !important; }
+            .pagina-2 { page-break-before: always; }
+          }
+        `}</style>
+
+        {/* PAINEL DE EDIÇÃO — não imprime */}
+        <div className="no-print max-w-3xl mx-auto p-8">
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => setTela('menu')} className="text-xs border-2 border-black px-3 py-1 font-black italic uppercase bg-white">← VOLTAR</button>
+            <h1 className="text-2xl font-black uppercase italic border-l-8 border-black pl-4">Nova Matrícula</h1>
+          </div>
+
+          {/* CURSO */}
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-5">
+            <p className="text-[10px] font-black uppercase mb-3 text-gray-500">Curso e turno</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Curso</label>
+                <select value={matriculaFicha.curso} onChange={e => atualizarFicha('curso', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none">
+                  <option value="">Selecione</option>
+                  {CURSOS_FICHA.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Dias</label>
+                <select value={matriculaFicha.diasCurso} onChange={e => atualizarFicha('diasCurso', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none">
+                  <option value="">Selecione</option>
+                  <option value="2e4">2° e 4°</option>
+                  <option value="3e5">3° e 5°</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Horário</label>
+                <input value={matriculaFicha.horario} onChange={e => atualizarFicha('horario', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" placeholder="Ex: 14H" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Nível</label>
+                <input value={matriculaFicha.nivel} onChange={e => atualizarFicha('nivel', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Unidade</label>
+                <select value={matriculaFicha.unidade} onChange={e => atualizarFicha('unidade', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none">
+                  <option value="jardim_europa">Jardim Europa</option>
+                  <option value="centro">Centro</option>
+                  <option value="sede">Sede</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* IDENTIFICAÇÃO */}
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-5">
+            <p className="text-[10px] font-black uppercase mb-3 text-gray-500">Identificação do aluno</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="col-span-4">
+                <label className="text-[10px] font-black uppercase block mb-1">Nome completo *</label>
+                <input value={matriculaFicha.nomeCompleto} onChange={e => atualizarFicha('nomeCompleto', e.target.value.toUpperCase())} className="w-full border-2 border-black px-2 py-2 text-sm font-bold uppercase outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Nome social</label>
+                <input value={matriculaFicha.nomeSocial} onChange={e => atualizarFicha('nomeSocial', e.target.value.toUpperCase())} className="w-full border-2 border-black px-2 py-2 text-sm font-bold uppercase outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">CPF ou RG</label>
+                <input value={matriculaFicha.cpfRg} onChange={e => atualizarFicha('cpfRg', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Data de nascimento</label>
+                <input type="date" value={matriculaFicha.dataNascimento} onChange={e => atualizarFicha('dataNascimento', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Telefone</label>
+                <input value={matriculaFicha.telefone} onChange={e => atualizarFicha('telefone', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Idade</label>
+                <input value={matriculaFicha.idade} onChange={e => atualizarFicha('idade', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">WhatsApp</label>
+                <input value={matriculaFicha.whatsapp} onChange={e => atualizarFicha('whatsapp', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" placeholder="(73) 9...." />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Gênero</label>
+                <input value={matriculaFicha.genero} onChange={e => atualizarFicha('genero', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Escola</label>
+                <input value={matriculaFicha.escola} onChange={e => atualizarFicha('escola', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">NIS</label>
+                <input value={matriculaFicha.nis} onChange={e => atualizarFicha('nis', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* RESPONSÁVEL */}
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-5">
+            <p className="text-[10px] font-black uppercase mb-3 text-gray-500">Responsável / contato de emergência</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Nome</label>
+                <input value={matriculaFicha.respNome} onChange={e => atualizarFicha('respNome', e.target.value.toUpperCase())} className="w-full border-2 border-black px-2 py-2 text-sm font-bold uppercase outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">CPF</label>
+                <input value={matriculaFicha.respCpf} onChange={e => atualizarFicha('respCpf', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Telefone</label>
+                <input value={matriculaFicha.respTelefone} onChange={e => atualizarFicha('respTelefone', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Profissão</label>
+                <input value={matriculaFicha.respProfissao} onChange={e => atualizarFicha('respProfissao', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* ENDEREÇO */}
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-5">
+            <p className="text-[10px] font-black uppercase mb-3 text-gray-500">Endereço</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="col-span-3">
+                <label className="text-[10px] font-black uppercase block mb-1">Rua</label>
+                <input value={matriculaFicha.enderecoRua} onChange={e => atualizarFicha('enderecoRua', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-black uppercase block mb-1">Bairro</label>
+                <input value={matriculaFicha.enderecoBairro} onChange={e => atualizarFicha('enderecoBairro', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Nº</label>
+                <input value={matriculaFicha.enderecoNumero} onChange={e => atualizarFicha('enderecoNumero', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div className="col-span-3">
+                <label className="text-[10px] font-black uppercase block mb-1">Cidade</label>
+                <input value={matriculaFicha.enderecoCidade} onChange={e => atualizarFicha('enderecoCidade', e.target.value)} placeholder="TEIXEIRA DE FREITAS" className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* SAÚDE */}
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-5">
+            <p className="text-[10px] font-black uppercase mb-3 text-gray-500">Saúde do aluno</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Possui alergia(s)?</label>
+                <select value={matriculaFicha.alergias} onChange={e => atualizarFicha('alergias', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none">
+                  <option value="">Selecione</option><option value="sim">Sim</option><option value="nao">Não</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Qual(is)?</label>
+                <input value={matriculaFicha.alergiasQuais} onChange={e => atualizarFicha('alergiasQuais', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Possui problemas de saúde?</label>
+                <select value={matriculaFicha.problemasSaude} onChange={e => atualizarFicha('problemasSaude', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none">
+                  <option value="">Selecione</option><option value="sim">Sim</option><option value="nao">Não</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Qual(is)?</label>
+                <input value={matriculaFicha.problemasSaudeQuais} onChange={e => atualizarFicha('problemasSaudeQuais', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Tipo sanguíneo</label>
+                <input value={matriculaFicha.tipoSanguineo} onChange={e => atualizarFicha('tipoSanguineo', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Nº do SUS</label>
+                <input value={matriculaFicha.susNumero} onChange={e => atualizarFicha('susNumero', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* TERMO */}
+          <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_#000] mb-5">
+            <p className="text-[10px] font-black uppercase mb-3 text-gray-500">Termo de autorização de imagem (pág. 2)</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Documento do responsável</label>
+                <select value={matriculaFicha.termoDocumentoTipo} onChange={e => atualizarFicha('termoDocumentoTipo', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none">
+                  <option value="">RG ou CPF</option><option value="RG">RG</option><option value="CPF">CPF</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Número</label>
+                <input value={matriculaFicha.termoDocumentoNumero} onChange={e => atualizarFicha('termoDocumentoNumero', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Cédula do aluno (menor)</label>
+                <input value={matriculaFicha.termoCedulaAluno} onChange={e => atualizarFicha('termoCedulaAluno', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Período de responsabilidade</label>
+                <input value={matriculaFicha.termoMesResponsabilidade} onChange={e => atualizarFicha('termoMesResponsabilidade', e.target.value)} placeholder="Ex: Março a Dezembro" className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Dia (assinatura)</label>
+                <input value={matriculaFicha.termoDia} onChange={e => atualizarFicha('termoDia', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase block mb-1">Mês (assinatura)</label>
+                <input value={matriculaFicha.termoMes} onChange={e => atualizarFicha('termoMes', e.target.value)} className="w-full border-2 border-black px-2 py-2 text-sm font-bold outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {matriculaStatus && (
+            <div className={`mb-4 px-4 py-3 border-2 border-black font-bold text-sm ${matriculaStatus.tipo === 'ok' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+              {matriculaStatus.texto}
+            </div>
+          )}
+
+          <div className="flex gap-4">
+            <button onClick={salvarMatricula} disabled={matriculaSalvando}
+              className="bg-blue-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] disabled:opacity-50">
+              {matriculaSalvando ? 'Salvando...' : 'Salvar na planilha'}
+            </button>
+            <button onClick={() => window.print()}
+              className="bg-black text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000]">
+              Imprimir ficha
+            </button>
+            <button onClick={() => { setMatriculaFicha(VAZIO_MATRICULA); setMatriculaStatus(null) }}
+              className="bg-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black">
+              Limpar
+            </button>
+          </div>
+        </div>
+
+        {/* ════════ PÁGINA 1 IMPRESSA — fiel ao modelo físico ════════ */}
+        <div className="max-w-[800px] mx-auto bg-white border-2 border-black mt-10 mb-10 print:mt-0 text-black text-[11px]">
+          <div className="flex items-center justify-between border-b-2 border-black p-3" style={{ height: 90 }}>
+            <img src={URL_LOGO_PREFEITURA} alt="Prefeitura" style={{ height: 56 }} className="object-contain" />
+            <img src={URL_LOGO_CULTURA} alt="Casa da Cultura" style={{ height: 56 }} className="object-contain" />
+          </div>
+          <div className="text-center font-bold uppercase text-sm py-1 border border-black" style={{ backgroundColor: AZUL_FAIXA, color:'#fff', fontSize:14 }}>
+            FICHA DE MATRICULA 2026 – {UNIDADES_LABEL[matriculaFicha.unidade] || 'JARDIM EUROPA'}
+          </div>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="font-bold">
+                <td className="border border-black px-2 py-1 w-[34%]">CURSOS</td>
+                <td className="border border-black px-2 py-1 text-center w-[12%]">2° e 4°</td>
+                <td className="border border-black px-2 py-1 text-center w-[12%]">3° e 5°</td>
+                <td className="border border-black px-2 py-1 w-[22%]">HORÁRIO</td>
+                <td className="border border-black px-2 py-1 w-[20%]">NIVEL</td>
+              </tr>
+            </thead>
+            <tbody>
+              {CURSOS_FICHA.map(c => {
+                const marc = matriculaFicha.curso === c;
+                return (
+                  <tr key={c}>
+                    <td className="border border-black px-2 py-1">{c}</td>
+                    <td className="border border-black px-2 py-1 text-center font-black">{marc && matriculaFicha.diasCurso==='2e4' ? 'X' : ''}</td>
+                    <td className="border border-black px-2 py-1 text-center font-black">{marc && matriculaFicha.diasCurso==='3e5' ? 'X' : ''}</td>
+                    <td className="border border-black px-2 py-1">{marc ? matriculaFicha.horario : ''}</td>
+                    <td className="border border-black px-2 py-1">{marc ? matriculaFicha.nivel : ''}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          <div className={faixa} style={{ backgroundColor: AZUL_FAIXA, color:'#fff' }}>IDENTIFICAÇÃO DO ALUNO</div>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr><td className="border border-black px-2 py-1 font-bold w-[22%]">Nome completo</td><td className="border border-black px-2 py-1 uppercase" colSpan={3}>{matriculaFicha.nomeCompleto}</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Nome social</td><td className="border border-black px-2 py-1 uppercase" colSpan={3}>{matriculaFicha.nomeSocial}</td></tr>
+              <tr>
+                <td className="border border-black px-2 py-1 font-bold">CPF ou RG</td>
+                <td className="border border-black px-2 py-1 w-[28%]">{matriculaFicha.cpfRg}</td>
+                <td className="border border-black px-2 py-1 font-bold w-[18%]">Data de Nascimento</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.dataNascimento ? matriculaFicha.dataNascimento.split('-').reverse().join('/') : ''}</td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 font-bold">Telefone</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.telefone}</td>
+                <td className="border border-black px-2 py-1 font-bold">Idade</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.idade}</td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 font-bold">WhatsApp ( )</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.whatsapp}</td>
+                <td className="border border-black px-2 py-1 font-bold">Gênero</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.genero}</td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 font-bold">Escola</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.escola}</td>
+                <td className="border border-black px-2 py-1 font-bold">NIS</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.nis}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className={faixa} style={{ backgroundColor: AZUL_FAIXA, color:'#fff' }}>DADOS DO RESPONSAVEL / CONTATO DE EMERGENCIA</div>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr><td className="border border-black px-2 py-1 font-bold w-[22%]">Nome</td><td className="border border-black px-2 py-1 uppercase">{matriculaFicha.respNome}</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">CPF</td><td className="border border-black px-2 py-1">{matriculaFicha.respCpf}</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Telefone</td><td className="border border-black px-2 py-1">{matriculaFicha.respTelefone}</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Profissão</td><td className="border border-black px-2 py-1">{matriculaFicha.respProfissao}</td></tr>
+            </tbody>
+          </table>
+
+          <div className={faixa} style={{ backgroundColor: AZUL_FAIXA, color:'#fff' }}>ENDEREÇO</div>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr><td className="border border-black px-2 py-1 font-bold w-[14%]">Rua:</td><td className="border border-black px-2 py-1">{matriculaFicha.enderecoRua}</td></tr>
+              <tr>
+                <td className="border border-black px-2 py-1 font-bold">Bairro:</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.enderecoBairro}<span className="float-right font-bold">N°: {matriculaFicha.enderecoNumero}</span></td>
+              </tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Cidade:</td><td className="border border-black px-2 py-1">{matriculaFicha.enderecoCidade || 'TEIXEIRA DE FREITAS'}</td></tr>
+            </tbody>
+          </table>
+
+          <div className={faixa} style={{ backgroundColor: AZUL_FAIXA, color:'#fff' }}>DADOS SOBRE A SAÚDE DO ALUNO</div>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr><td className="border border-black px-2 py-1 font-bold w-[36%]">Possui alergia(s)?</td><td className="border border-black px-2 py-1">Sim ({matriculaFicha.alergias==='sim'?'X':' '})  Não ({matriculaFicha.alergias==='nao'?'X':' '})</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Qual(is)?</td><td className="border border-black px-2 py-1">{matriculaFicha.alergiasQuais}</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Possui problemas de saúde?</td><td className="border border-black px-2 py-1">Sim ({matriculaFicha.problemasSaude==='sim'?'X':' '})  Não ({matriculaFicha.problemasSaude==='nao'?'X':' '})</td></tr>
+              <tr><td className="border border-black px-2 py-1 font-bold">Qual(is)?</td><td className="border border-black px-2 py-1">{matriculaFicha.problemasSaudeQuais}</td></tr>
+              <tr>
+                <td className="border border-black px-2 py-1 font-bold">Tipo sanguíneo</td>
+                <td className="border border-black px-2 py-1">{matriculaFicha.tipoSanguineo}<span className="float-right font-bold">N° do SUS: {matriculaFicha.susNumero}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* ════════ PÁGINA 2 IMPRESSA — Termo de autorização ════════ */}
+        <div className="pagina-2 max-w-[800px] mx-auto bg-white border-2 border-black mb-20 text-black text-[12px] p-8">
+          <div className={faixa} style={{ backgroundColor: AZUL_FAIXA, color:'#fff', fontSize:14, marginBottom:24 }}>
+            TERMO DE AUTORIZAÇÃO DE USO DE IMAGEM E VOZ
+          </div>
+          <p className="leading-relaxed mb-1">Eu <span className="font-bold uppercase">{matriculaFicha.respNome || '_'.repeat(50)}</span></p>
+          <p className="leading-relaxed mb-1">
+            portador(a) de célula de identidade RG [{matriculaFicha.termoDocumentoTipo==='RG'?'X':' '}] ou CPF [{matriculaFicha.termoDocumentoTipo==='CPF'?'X':' '}] n° <span className="font-bold">{matriculaFicha.termoDocumentoNumero || '_'.repeat(20)}</span>
+          </p>
+          <p className="leading-relaxed mb-4">
+            responsável legal pelo(a) aluno(a) menor portador(a) de cédula de identidade n° <span className="font-bold">{matriculaFicha.termoCedulaAluno || '_'.repeat(20)}</span> autorizo o uso da imagem e depoimentos, bem como a veiculação em qualquer meio de comunicação para fins didáticos, de pesquisa e divulgação de conhecimento científico, elaboração de produtos e divulgação de projetos audiovisuais sem quaisquer ônus e restrições. Fica ainda autorizada, de livre e espontânea vontade, para os mesmos fins, a cessão de direitos de veiculação das minhas imagens e depoimentos, não recebendo para tanto qualquer tipo de remuneração.
+          </p>
+          <p className="leading-relaxed mb-10">
+            Casa da Cultura de Teixeira de Freitas, <span className="font-bold">{matriculaFicha.termoDia || '___'}</span> de <span className="font-bold">{matriculaFicha.termoMes || '___________'}</span> de 2026. Eu, responsabilizo-me pelas atividades do aluno nesta instituição durante <span className="font-bold">{matriculaFicha.termoMesResponsabilidade || '___________'}</span> de 2026.
+          </p>
+          <div className="flex flex-col items-center gap-10 mt-16">
+            <div className="text-center"><div className="w-80 border-b-2 border-black mb-1"></div><span className="text-xs font-bold uppercase">Assinatura do responsável legal</span></div>
+            <div className="text-center"><div className="w-80 border-b-2 border-black mb-1"></div><span className="text-xs font-bold uppercase">Assinatura do responsável pela matricula</span></div>
+            <div className="text-center"><div className="w-80 border-b-2 border-black mb-1"></div><span className="text-xs font-bold uppercase">Assinatura do diretor / coordenador de cultura</span></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TELA LISTA
   // ════════════════════════════════════════════════════════════
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => {
@@ -273,253 +1156,330 @@ export default function CasaDaCultura2026() {
 
     const unidadeAtual = UNIDADES.find(u => u.id === unidadeSel) || UNIDADES[0];
 
+    // Agrupa as turmas pela combinação exata de dias que cada uma tem
+    const gruposPorDia: Record<string, any[]> = {};
+    turmasDoProf.forEach(t => {
+      const diasArr = Array.isArray(t.dias) ? [...t.dias].map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b) : [];
+      const chave = diasArr.join(',');
+      if (!gruposPorDia[chave]) gruposPorDia[chave] = [];
+      gruposPorDia[chave].push(t);
+    });
+
+    const gruposOrdenados = Object.entries(gruposPorDia).sort(([chaveA], [chaveB]) => {
+      const primeiroA = Number(chaveA.split(',')[0]);
+      const primeiroB = Number(chaveB.split(',')[0]);
+      return (isNaN(primeiroA) ? 99 : primeiroA) - (isNaN(primeiroB) ? 99 : primeiroB);
+    });
+
+    const coresGrupo = ['bg-blue-600', 'bg-red-600', 'bg-emerald-600', 'bg-purple-600', 'bg-orange-600', 'bg-pink-600'];
+
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-4 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <p className={`text-xs mb-2 font-bold italic ${unidadeAtual.txt}`}>{unidadeAtual.nome}</p>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          {[1, 2].map(d => (
-            <div key={d}>
-              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d===1?'bg-blue-600':'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d===1?'SEGUNDA E QUARTA':'TERÇA E QUINTA'}</h3>
-              <div className="space-y-4">
-                {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
-                  const n = contagemAlunos[c.id] || 0;
-                  const limit = obterLimiteOficina(c.oficina);
-                  const cor = obterCorOcupacao(n, limit);
-                  return (
-                    <div key={c.id} onClick={() => {setIdAtivo(c.id); setTela('chamada');}} className={`${cor.fundo} border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all ${cor.borda}`}>
-                      <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
-                    </div>
-                  )
-                })}
+          {gruposOrdenados.map(([chave, turmasGrupo], i) => {
+            const diasArr = chave.split(',').map(Number).filter(n => !isNaN(n));
+            const label = formatarDiasTexto(diasArr);
+            const cor = coresGrupo[i % coresGrupo.length];
+            return (
+              <div key={chave || `sem-dia-${i}`}>
+                <h3 className={`p-3 mb-6 text-center border-4 border-black ${cor} text-white shadow-[4px_4px_0px_#000] font-black`}>{label}</h3>
+                <div className="space-y-4">
+                  {turmasGrupo.map(c => {
+                    const n = contagemAlunos[c.id] || 0;
+                    const limit = obterLimiteOficina(c.oficina);
+                    const bgCor = getBgCorLotacao(n, limit);
+                    const corTexto = getCorLotacao(n, limit);
+                    const icone = getIconeLotacao(n, limit);
+
+                    return (
+                      <div 
+                        key={c.id} 
+                        onClick={() => { setIdAtivo(c.id); setTela('chamada'); }} 
+                        className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all ${bgCor}`}
+                      >
+                        <div>
+                          <span className="text-2xl block leading-none font-black">{c.horario}</span>
+                          <span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span>
+                        </div>
+                        <div className="text-right font-black italic">
+                          <span className={`text-lg ${corTexto}`}>{icone} {n} / {limit}</span>
+                          <span className="block text-[10px] text-gray-400">
+                            {Math.round((n/limit)*100)}%
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     )
   }
 
+  // ════════════════════════════════════════════════════════════
+  // TELA CHAMADA
+  // ════════════════════════════════════════════════════════════
   const curso = turmas.find(t => t.id === idAtivo);
   const unidadeInfo = UNIDADES.find(u => u.id === (curso?.unidade || 'jardim_europa')) || UNIDADES[0];
-  const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
+  const diasArrCurso: number[] = Array.isArray(curso?.dias) ? curso.dias.map(Number).filter((n: number) => !isNaN(n)) : [];
+  const diasTexto = formatarDiasTexto(diasArrCurso);
 
-  const getDatasAulas = () => {
-    const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
-    const datas: string[] = [];
-    const ultimoDia = new Date(2026, mes + 1, 0).getDate();
+  const getDatasParaMes = (mesAlvo: number) => {
+    const diasAlvo = diasArrCurso;
+    const datas: { formatada: string; diaPuro: string; mesPuro: number }[] = [];
+    const ultimoDia = new Date(2026, mesAlvo + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
-      const dataProd = new Date(2026, mes, d);
+      const dataProd = new Date(2026, mesAlvo, d);
       if (diasAlvo.includes(dataProd.getDay())) {
-        datas.push(`${d < 10 ? '0'+d : d}/${mes+1 < 10 ? '0'+(mes+1) : mes+1}`);
+        datas.push({
+          formatada: `${d < 10 ? '0' + d : d}/${mesAlvo + 1 < 10 ? '0' + (mesAlvo + 1) : mesAlvo + 1}`,
+          diaPuro: `${d < 10 ? '0' + d : d}`,
+          mesPuro: mesAlvo
+        });
       }
     }
     return datas;
   };
-  const datasAulas = getDatasAulas();
+
+  const datasMes1 = getDatasParaMes(mes);
+  const datasMes2 = getDatasParaMes(mes2);
+  const datasMes3 = getDatasParaMes(mes3);
+  const todasDatasTrimestral = [...datasMes1, ...datasMes2, ...datasMes3];
 
   return (
-    <div className="min-h-screen italic font-black uppercase bg-white">
+    <div className="min-h-screen font-sans uppercase bg-[#fff] text-black w-full antialiased">
       <title>CASA DA CULTURA 2026</title>
 
-      {/* NAVBAR */}
-      <nav className="no-print bg-white border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <button onClick={()=>{setTela('lista'); fetchTurmas();}} className="text-xs border-4 border-black px-4 py-2 bg-white italic font-black uppercase">← VOLTAR</button>
-        <div className="flex gap-4">
-          <button onClick={() => setAlunosLocais([...alunosLocais, {nome:"", telefone:"", posicao:alunosLocais.length, id:null}])} className="bg-blue-600 text-white px-4 py-2 text-[10px] border-4 border-black shadow-[4px_4px_0px_#000] font-black italic">NOVO ALUNO +</button>
-          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-4 border-black p-1 text-xs italic font-black uppercase">{mesesNomes.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
-          <button onClick={()=>window.print()} className="bg-black text-white px-6 py-2 text-[10px] border-4 border-black font-black italic">IMPRIMIR FOLHA</button>
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 5mm 6mm 4mm 6mm;
+          }
+          .no-print { display: none !important; }
+          body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .folha-container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .tabela-wrapper {
+            overflow: visible !important;
+          }
+          table {
+            width: 100% !important;
+            table-layout: fixed !important;
+          }
+        }
+        @media screen {
+          .tabela-wrapper {
+            overflow-x: auto;
+            max-width: 100%;
+            border-bottom: 2.5px solid #000;
+          }
+        }
+      `}</style>
+
+      {/* Controle Superior do App */}
+      <nav className="no-print bg-slate-900 border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
+        <button onClick={() => { setTela('lista'); fetchTurmas(); }} className="text-xs border-2 border-white px-4 py-1.5 bg-transparent text-white font-black italic uppercase hover:bg-white hover:text-black transition-all">← VOLTAR</button>
+        <div className="flex gap-4 items-center">
+          <button onClick={() => setAlunosLocais([...alunosLocais, { nome: "", telefone: "", posicao: alunosLocais.length, id: null }])} className="bg-emerald-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all">NOVO ALUNO +</button>
+          <div className="flex items-center bg-gray-800 text-gray-300 border-2 border-black text-[11px] font-black italic overflow-hidden">
+            <button onClick={() => setNumLinhas(n => Math.max(1, n - 1))} className="px-3 py-1.5 hover:bg-red-700 transition-all select-none">−</button>
+            <span className="px-3 py-1.5 border-x-2 border-black">{numLinhas} LINHAS</span>
+            <button onClick={() => setNumLinhas(n => n + 1)} className="px-3 py-1.5 hover:bg-green-700 transition-all select-none">+</button>
+          </div>
+          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-2 border-black p-1 text-xs font-black bg-white text-black italic uppercase cursor-pointer">
+            {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+          </select>
+          <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-blue-500 transition-all shadow-[2px_2px_0px_#000]">IMPRIMIR PAUTA</button>
         </div>
       </nav>
 
-      {/* FOLHA DE CHAMADA DESIGN FIEL À image_847369.png */}
-      <div className="folha-container mt-4 mb-10" style={{maxWidth:"1100px", margin:"16px auto 40px auto", padding:"0 24px"}}>
+      {/* Folha de Chamada */}
+      <div className="folha-container w-full" style={{ padding: "2px 0", margin: "0 auto" }}>
+        <div style={{ border: "2.5px solid #000", backgroundColor: "#fff" }} className="mx-1 md:mx-2">
 
-        {/* MOLDURA DO CABEÇALHO OFICIAL (PREFEITURA DE TEIXEIRA DE FREITAS) */}
-        <div style={{display:"block", marginBottom:"0px", border:"3px solid #000", padding:"1px"}}>
-          <img
-            src="/cabecalho-teixeira.png" 
-            alt="Prefeitura de Teixeira de Freitas - Secretaria de Cultura e Turismo - Casa da Cultura"
-            style={{display:"block", width:"100%", height:"auto", maxHeight:"120px", objectFit:"contain"}}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
+          {/* Cabeçalho Dividido Simetricamente no Meio com Linha Vertical Física */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", backgroundColor: "#fff", height: "76px", borderBottom: "2.5px solid #000" }}>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: "2.5px solid #000", padding: "4px" }}>
+              <img
+                src={URL_LOGO_PREFEITURA}
+                alt="Prefeitura de Teixeira de Freitas"
+                style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px" }}>
+              <img
+                src={URL_LOGO_CULTURA}
+                alt="Casa da Cultura"
+                style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }}
+              />
+            </div>
+
+          </div>
+
+          {/* Dados Institucionais */}
+          <table className="w-full border-collapse text-[11px] font-bold italic" style={{ borderSpacing: 0, tableLayout: 'fixed' }}>
+            <tbody>
+              <tr>
+                <td style={{ borderRight: "2.5px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="w-1/2">
+                  OFICINEIRO (A)/ PROFESSOR (A): <span className="font-black text-black">{curso?.professor}</span>
+                </td>
+                <td style={{ padding: "5px 10px", backgroundColor: "#fff" }} className="w-1/2">
+                  CURSO: <span className="font-black text-black">{curso?.oficina}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style={{ borderTop: "2px solid #000", borderRight: "2.5px solid #000", padding: "5px 10px", backgroundColor: "#fff" }}>
+                  DIAS DA SEMANA: <span className="font-black text-black">{diasTexto}</span>
+                </td>
+                <td style={{ borderTop: "2px solid #000", padding: "5px 10px", backgroundColor: "#fff" }}>
+                  HORÁRIO: <span className="font-black text-black">{curso?.horario}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style={{ borderTop: "2px solid #000", borderRight: "2.5px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="text-gray-500">
+                  {unidadeInfo.nome.toUpperCase()}
+                </td>
+                <td style={{ borderTop: "2px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="text-center font-black tracking-widest text-black uppercase text-[11px]">
+                  {mesesNomes[mes]}, {mesesNomes[mes2]} E {mesesNomes[mes3]}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Tabela Blindada contra Esmagamento com min-width */}
+          <div className="tabela-wrapper">
+            <table className="border-collapse text-black bg-white" style={{ borderSpacing: 0, width: "100%", minWidth: "1050px", tableLayout: "fixed" }}>
+              <thead>
+                <tr className="text-[10px] font-black border-t-2 border-b-2 border-black">
+                  <th style={{ width: "30px" }} className="bg-white"></th>
+                  <th style={{ width: "320px" }} className="bg-white"></th>
+                  <th colSpan={datasMes1.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#c6d6e6] text-black font-black">{mesesNomes[mes].toUpperCase()}</th>
+                  <th colSpan={datasMes2.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#b3c7db] text-black font-black">{mesesNomes[mes2].toUpperCase()}</th>
+                  <th colSpan={datasMes3.length} className="text-center py-1 italic tracking-wider bg-[#a4bdcf] text-black font-black">{mesesNomes[mes3].toUpperCase()}</th>
+                </tr>
+
+                <tr className="text-[9px] font-black tracking-tight text-center border-b-2 border-black bg-white">
+                  <th style={{ borderRight: "2.5px solid #000", width: "30px" }} className="py-1 italic text-center">Nº</th>
+                  <th style={{ borderRight: "2.5px solid #000", width: "320px" }} className="text-left px-3 italic">NOME DO ALUNO</th>
+
+                  {todasDatasTrimestral.map((dt, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        borderRight: "1px solid #000",
+                        width: "24px",
+                        maxWidth: "24px",
+                        minWidth: "24px"
+                      }}
+                      className="font-black p-0 py-1 italic text-center border-r border-black"
+                    >
+                      {dt.diaPuro}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(numLinhas)].map((_, index) => {
+                  const al = alunosLocais[index];
+
+                  return (
+                    <tr key={index} className="border-b border-black hover:bg-slate-50 transition-colors">
+                      <td style={{ borderRight: "2.5px solid #000", height: "32px", width: "30px" }} className="text-center font-black bg-white text-[11px]">
+                        {index + 1}
+                      </td>
+
+                      <td style={{ borderRight: "2.5px solid #000", width: "320px", padding: "0 8px" }} className="font-black uppercase italic">
+                        <div className="w-full h-full flex items-center">
+                          <input
+                            type="text"
+                            value={al?.nome || ""}
+                            onChange={e => {
+                              const n = [...alunosLocais];
+                              if (!n[index]) n[index] = { nome: "", telefone: "", posicao: index, id: null };
+                              n[index].nome = e.target.value.toUpperCase();
+                              setAlunosLocais(n);
+                            }}
+                            onBlur={() => salvarAlunoNoBanco(index)}
+                            className="w-full bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1"
+                            placeholder=""
+                          />
+                        </div>
+                      </td>
+
+                      {todasDatasTrimestral.map((dt, idx) => {
+                        const status = al?.id ? (presencas[al.id]?.[dt.formatada] || "") : "";
+                        return (
+                          <td
+                            key={idx}
+                            onClick={() => al?.id && alternarPresenca(index, dt.formatada, dt.mesPuro)}
+                            style={{
+                              borderRight: "1px solid #000",
+                              width: "24px",
+                              maxWidth: "24px",
+                              minWidth: "24px",
+                              cursor: al?.id ? "pointer" : "default",
+                              backgroundColor: status === "P" ? "#dcfce7" : status === "F" ? "#fee2e2" : status === "J" ? "#fef9c3" : "transparent",
+                              color: status === "F" ? "#ef4444" : status === "P" ? "#22c55e" : "#eab308"
+                            }}
+                            className="text-center font-black text-xs select-none p-0 border-r border-black"
+                          >
+                            {status}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* BLOCO AZUL DE INFORMAÇÕES DA TURMA */}
-        <table className="w-full border-collapse mb-0" style={{borderSpacing: 0}}>
-          <tbody>
-            <tr>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase w-1/2">
-                OFICINEIRO (A)/ PROFESSOR (A): <span className="font-normal">{curso?.professor}</span>
-              </td>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase w-1/2">
-                CURSO: <span className="font-normal">{curso?.oficina}</span>
-              </td>
-            </tr>
-            <tr>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
-                DIAS DA SEMANA: <span className="font-normal">{diasTexto}</span>
-              </td>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
-                HORÁRIO: <span className="font-normal">{curso?.horario}</span>
-              </td>
-            </tr>
-            <tr>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] uppercase">
-                {unidadeInfo.nome.toUpperCase()}
-              </td>
-              <td className="border border-[#4a90d9] bg-[#d6e8f7] px-3 py-1.5 font-black text-[11px] text-center uppercase tracking-widest">
-                {mesesNomes[mes]}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        {/* Rodapé Totalmente Blindado contra Desalinhamento (Uso de Grid Fixo) */}
+        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 240px", alignItems: "end", marginTop: "20px", padding: "0 16px", color: "#000" }}>
 
-        {/* TABELA PRINCIPAL DE CHAMADA (ESTRITA DE 10 LINHAS MÁXIMO) */}
-        <table className="w-full border-collapse mt-0 text-black bg-white" style={{border: "2px solid #000"}}>
-          <thead>
-            <tr className="bg-[#3b82f6] text-white text-[10px] font-black tracking-tight" style={{height: "26px"}}>
-              <th className="border border-black px-1 text-center" style={{width: "40px"}}>ORDEM</th>
-              <th className="border border-black px-3 text-left">NOMES</th>
-              <th className="border border-black px-2 text-center" style={{width: "45px"}}>GÊN.</th>
-              <th className="border border-black px-2 text-center" style={{width: "120px"}}>TELEFONE</th>
-              {datasAulas.map((dt, i) => (
-                <th key={i} className="border border-black text-center font-black text-[10px] px-0" style={{width: "35px", minWidth:"35px"}}>{dt.split('/')[0]}</th>
-              ))}
-              {datasAulas.length < 10 && [...Array(10 - datasAulas.length)].map((_, idx) => (
-                <th key={`v-${idx}`} className="border border-black" style={{width: "35px"}}></th>
-              ))}
-              <th className="border border-black text-center text-[10px]" style={{width: "50px"}}>FALTAS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...Array(10)].map((_, index) => {
-              const al = alunosLocais[index];
-              const gen = al?.nome ? detectarGenero(al.nome) : "";
+          <div style={{ width: "220px", justifySelf: "start" }} className="text-center">
+            <div className="border-t-2 border-black w-full my-1"></div>
+            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">
+              COORDENADOR(A) PEDAGÓGICO(A)
+            </span>
+          </div>
 
-              let totalFaltas = 0;
-              if (al?.id && presencas[al.id]) {
-                Object.values(presencas[al.id]).forEach(status => {
-                  if (status === "F") totalFaltas++;
-                });
-              }
+          <div className="text-center px-4">
+            <p style={{ color: "#475569", fontSize: "9px", lineHeight: "1.2" }} className="font-black italic uppercase tracking-tight">
+              A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {mesesNomes[mes].toLowerCase()}/{mesesNomes[mes2].toLowerCase()}/{mesesNomes[mes3].toLowerCase()}.
+            </p>
+          </div>
 
-              return (
-                <tr key={index} style={{height: "34px"}} className="hover:bg-gray-50 text-[11px]">
-                  <td className="border border-black text-center font-black text-xs">
-                    {index + 1}
-                  </td>
-                  
-                  <td className="border border-black px-3 font-black uppercase relative">
-                    <input
-                      type="text"
-                      value={al?.nome || ""}
-                      onChange={e => {
-                        const n = [...alunosLocais];
-                        if(!n[index]) n[index] = {nome:"", telefone:"", posicao:index, id:null};
-                        n[index].nome = e.target.value.toUpperCase();
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(index)}
-                      className="w-full bg-transparent outline-none font-black uppercase text-xs"
-                      style={{letterSpacing: "-0.3px"}}
-                      placeholder="..."
-                    />
-                    {modoGestao && al?.id && (
-                      <div className="absolute right-1 top-1 bg-white border border-red-500 rounded p-1 z-10 no-print flex gap-1 shadow-md">
-                        <select 
-                          className="text-[9px] font-black cursor-pointer bg-gray-100 p-0.5"
-                          onChange={(e) => transferirAluno(al.id, e.target.value)}
-                          defaultValue=""
-                        >
-                          <option value="" disabled>MOVER</option>
-                          {turmas.filter(t => t.id !== idAtivo).map(t => (
-                            <option key={t.id} value={t.id}>{t.professor} - {t.horario} ({t.oficina})</option>
-                          ))}
-                        </select>
-                        <button 
-                          onClick={async () => {
-                            if(confirm(`REMOVER ${al.nome}?`)) {
-                              await supabase.from('alunos').delete().eq('id', al.id);
-                              setAlunosLocais(alunosLocais.filter(a => a.id !== al.id));
-                              fetchTurmas(); fetchDadosGlobais();
-                            }
-                          }}
-                          className="bg-red-600 text-white font-black text-[9px] px-1 rounded hover:bg-red-700"
-                        >
-                          X
-                        </button>
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="border border-black text-center font-black text-xs text-gray-400 bg-gray-50">
-                    {gen}
-                  </td>
-
-                  <td className="border border-black px-1">
-                    <input
-                      type="text"
-                      value={al?.telefone || ""}
-                      onChange={e => {
-                        const n = [...alunosLocais];
-                        if(!n[index]) n[index] = {nome:"", telefone:"", posicao:index, id:null};
-                        n[index].telefone = e.target.value;
-                        setAlunosLocais(n);
-                      }}
-                      onBlur={() => salvarAlunoNoBanco(index)}
-                      className="w-full bg-transparent outline-none text-center text-[10px] font-bold text-gray-700"
-                      placeholder="-"
-                    />
-                  </td>
-
-                  {datasAulas.map((dt, idx) => {
-                    const status = al?.id ? (presencas[al.id]?.[dt] || "") : "";
-                    return (
-                      <td
-                        key={idx}
-                        onClick={() => al?.id && alternarPresenca(index, dt)}
-                        className="border border-black text-center font-black text-sm select-none transition-colors"
-                        style={{
-                          cursor: al?.id ? "pointer" : "default",
-                          backgroundColor: status === "P" ? "#bbf7d0" : status === "F" ? "#fecaca" : status === "J" ? "#fef08a" : "transparent",
-                          color: status === "F" ? "#dc2626" : status === "P" ? "#16a34a" : "#ca8a04"
-                        }}
-                      >
-                        {status}
-                      </td>
-                    );
-                  })}
-
-                  {datasAulas.length < 10 && [...Array(10 - datasAulas.length)].map((_, idx) => (
-                    <td key={`bc-${idx}`} className="border border-black bg-gray-50 cursor-not-allowed"></td>
-                  ))}
-
-                  <td className="border border-black text-center font-black text-sm">
-                    {totalFaltas}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* CONTAINER DE ASSINATURA */}
-        <div className="w-full flex justify-end mt-12 items-center">
-          <div className="text-right border-t border-black pt-1" style={{width: "320px"}}>
-            <span className="text-[10px] font-black uppercase block tracking-tight">
-              ASSINATURA DO PROFESSOR(A): {curso?.professor}
+          <div style={{ width: "220px", justifySelf: "end" }} className="text-center">
+            <div className="border-t-2 border-black w-full my-1"></div>
+            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">
+              PROFESSOR(A): {curso?.professor}
             </span>
           </div>
         </div>
 
-        {/* NOTA PEDAGÓGICA INALTERADA */}
-        <div style={{border: "1px solid #4a90d9", marginTop: "16px", padding: "8px 12px", background: "#f1f5f9", fontSize: "10px", textAlign: "center", fontStyle: "italic", fontWeight: "bold"}} className="text-gray-700 uppercase tracking-tight">
-          Excelente mês de {mesesNomes[mes].toLowerCase()}! A unidade {unidadeInfo.label} da Casa da Cultura deseja um ótimo mês de trabalho e música — que a arte continue transformando vidas.
+        <div className="w-full text-center mt-4 text-[7.5px] tracking-widest text-gray-400 font-bold italic">
+          FOLHA DE CONTROLE DE FREQUÊNCIA — CASA DA CULTURA 2026
         </div>
       </div>
     </div>
