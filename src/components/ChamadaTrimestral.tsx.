@@ -6,12 +6,97 @@ import { supabase } from '@/lib/supabase'
 const URL_LOGO_PREFEITURA = "/logo-prefeitura.png.jpeg";
 const URL_LOGO_CULTURA = "/logo-casa-cultura.png";
 
-// Unidades da Casa da Cultura — adicione/edite aqui se surgir uma quarta unidade
+// Unidades da Casa da Cultura
 const UNIDADES = [
   { id: 'jardim_europa', nome: 'Casa da Cultura - Jardim Europa', label: 'Jardim Europa', accent: 'border-blue-600', txt: 'text-blue-600' },
   { id: 'centro', nome: 'Casa da Cultura - Centro', label: 'Centro', accent: 'border-emerald-600', txt: 'text-emerald-600' },
   { id: 'sede', nome: 'Casa da Cultura - Sede (Bela Vista)', label: 'Sede', accent: 'border-orange-600', txt: 'text-orange-600' },
 ]
+
+// Dias da semana
+const DIAS_SEMANA = [
+  { id: 0, label: "Domingo" },
+  { id: 1, label: "Segunda" },
+  { id: 2, label: "Terça" },
+  { id: 3, label: "Quarta" },
+  { id: 4, label: "Quinta" },
+  { id: 5, label: "Sexta" },
+  { id: 6, label: "Sábado" }
+];
+
+// ════════════════════════════════════════════════════════════
+// SISTEMA DE LIMITES PADRÃO POR OFICINA
+// ════════════════════════════════════════════════════════════
+const LIMITES_OFICINAS: Record<string, number> = {
+  'VIOLÃO': 15,
+  'VIOLINO': 10,
+  'VIOLA': 3,
+  'VIOLONCELO': 3,
+  'CONTRABAIXO': 5,
+  'PIANO': 3,
+  'TECLADO': 4,
+  'FLAUTA DOCE': 10,
+  'FLAUTA TRANSVERSAL': 1,
+  'SAXOFONE': 3,
+  'CLARINETE': 3,
+  'BATERIA': 8,
+  'PERCUSSÃO': 10,
+  'CANTO': 15,
+  'CORAL': 20,
+  'TÉCNICA VOCAL': 12,
+  'TEORIA MUSICAL': 15,
+  'MUSICALIZAÇÃO': 12,
+  'UKULELE': 10,
+  'CAVAQUINHO': 10,
+  'BANDOLIM': 8,
+};
+
+const obterLimiteOficina = (oficina: string): number => {
+  if (!oficina) return 15;
+  const of = oficina.toUpperCase().trim();
+  if (LIMITES_OFICINAS[of]) return LIMITES_OFICINAS[of];
+  for (const [key, value] of Object.entries(LIMITES_OFICINAS)) {
+    if (of.includes(key) || key.includes(of)) {
+      return value;
+    }
+  }
+  return 15;
+};
+
+// ════════════════════════════════════════════════════════════
+// FUNÇÃO PARA OBTER LIMITE (PERSONALIZADO OU PADRÃO)
+// ════════════════════════════════════════════════════════════
+function obterLimiteTurma(turma: any): number {
+  if (turma.limite_personalizado && turma.limite_personalizado > 0) {
+    return turma.limite_personalizado;
+  }
+  return obterLimiteOficina(turma.oficina);
+}
+
+// ════════════════════════════════════════════════════════════
+// FUNÇÕES DE CORES BASEADAS NA LOTAÇÃO
+// ════════════════════════════════════════════════════════════
+function getStatusLotacao(alunos: number, limite: number) {
+  if (limite === 0) return { status: 'sem_limite', cor: 'text-gray-500', bg: 'bg-gray-50 border-gray-300', icone: '⚪', label: 'SEM LIMITE' };
+  
+  const percentual = (alunos / limite) * 100;
+  
+  if (percentual >= 100) {
+    return { status: 'lotado', cor: 'text-red-600', bg: 'bg-red-100 border-red-600', icone: '🔴', label: 'LOTADO' };
+  }
+  if (percentual >= 90) {
+    return { status: 'quase_lotado', cor: 'text-red-500', bg: 'bg-red-50 border-red-500', icone: '🔶', label: 'QUASE CHEIO' };
+  }
+  if (percentual >= 70) {
+    return { status: 'alerta', cor: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-600', icone: '🟡', label: 'ALERTA' };
+  }
+  return { status: 'tranquilo', cor: 'text-green-600', bg: 'bg-white border-black', icone: '🟢', label: 'TRANQUILO' };
+}
+
+const getIconeLotacao = (alunos: number, limite: number): string => {
+  const status = getStatusLotacao(alunos, limite);
+  return status.icone;
+};
 
 export default function ChamadaTrimestral() {
   const [tela, setTela] = useState('menu')
@@ -20,7 +105,7 @@ export default function ChamadaTrimestral() {
   const [unidadeSel, setUnidadeSel] = useState("jardim_europa")
   const [idAtivo, setIdAtivo] = useState<any>(null)
 
-  const [mes, setMes] = useState(6) // Padrão Julho para o bloco Jul/Ago/Set
+  const [mes, setMes] = useState(6)
 
   const [turmas, setTurmas] = useState<any[]>([])
   const [alunosLocais, setAlunosLocais] = useState<any[]>([])
@@ -29,10 +114,43 @@ export default function ChamadaTrimestral() {
   const [contagemAlunos, setContagemAlunos] = useState<any>({})
 
   const [todosAlunos, setTodosAlunos] = useState<any[]>([])
-  const [todasPresencas, setTodasPresencas] = useState<any[]>([])
   const [numLinhas, setNumLinhas] = useState<number>(10)
 
+  // ════════════════════════════════════════════════════════════
+  // ESTADOS PARA GERENCIAMENTO DE TURMAS
+  // ════════════════════════════════════════════════════════════
+  const [editandoTurma, setEditandoTurma] = useState<any>(null)
+  const [mostrarFormTurma, setMostrarFormTurma] = useState(false)
+  const [turmaForm, setTurmaForm] = useState({
+    professor: '',
+    oficina: '',
+    horario: '',
+    unidade: 'jardim_europa',
+    dias: [] as number[],
+    limite_personalizado: 15,
+  })
+  const [mensagemTurma, setMensagemTurma] = useState<{tipo:'ok'|'erro', texto:string}|null>(null)
+
+  // ════════════════════════════════════════════════════════════
+  // ESTADO PARA FILTRO DE PROFESSOR NO GERENCIAMENTO
+  // ════════════════════════════════════════════════════════════
+  const [filtroProfessorGerenciar, setFiltroProfessorGerenciar] = useState('')
+
+  // ════════════════════════════════════════════════════════════
+  // ESTADO PARA MODAL DE EXCLUSÃO DE ALUNO
+  // ════════════════════════════════════════════════════════════
+  const [alunoParaExcluir, setAlunoParaExcluir] = useState<any>(null);
+  const [mostrarModalExcluir, setMostrarModalExcluir] = useState(false);
+
   const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+
+  const NOMES_DIAS_SEMANA = ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"]
+
+  const formatarDiasTexto = (diasArr: number[]) => {
+    if (!diasArr || diasArr.length === 0) return "DIA NÃO DEFINIDO";
+    const ordenado = [...diasArr].map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    return ordenado.map(d => NOMES_DIAS_SEMANA[d]).join(' E ');
+  };
 
   const blocosTrimestrais = [
     { inicio: 0, nome: "Jan, Fev e Mar" },
@@ -51,23 +169,6 @@ export default function ChamadaTrimestral() {
     return nome.endsWith('A') ? 'F' : 'M';
   };
 
-  const obterLimiteOficina = (oficina: string) => {
-    const o = oficina?.toUpperCase() || "";
-    if (o.includes("FLAUTA DOCE")) return 10;
-    if (o.includes("FLAUTA TRANSVERSAL") || o === "FLAUTA") return 1;
-    if (o.includes("CANTO") || o.includes("CORAL")) return 15;
-    if (o.includes("PIANO")) return 2;
-    if (o.includes("VIOLONCELO") || o.includes("VIOLA")) return 3;
-    if (o.includes("VIOLINO")) return 10;
-    if (o.includes("VIOLÃO")) return 15;
-    if (o.includes("BATERIA") || o.includes("PERCUSSÃO")) return 10;
-    return 15;
-  };
-
-  useEffect(() => {
-    setNumLinhas(10);
-  }, [idAtivo]);
-
   useEffect(() => { fetchTurmas(); fetchDadosGlobais(); }, [mes]);
   useEffect(() => { if (idAtivo) fetchDados(); }, [idAtivo, mes]);
 
@@ -85,9 +186,7 @@ export default function ChamadaTrimestral() {
     const mes2 = (mes + 1) % 12;
     const mes3 = (mes + 2) % 12;
     const { data: alu } = await supabase.from('alunos').select('*');
-    const { data: freq } = await supabase.from('frequencia').select('*').in('mes', [mes, mes2, mes3]);
     if (alu) setTodosAlunos(alu);
-    if (freq) setTodasPresencas(freq);
   }
 
   async function fetchDados() {
@@ -146,14 +245,158 @@ export default function ChamadaTrimestral() {
     fetchDadosGlobais();
   };
 
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÃO PARA EXCLUIR ALUNO
+  // ════════════════════════════════════════════════════════════
+  const confirmarExcluirAluno = (index: number) => {
+    const aluno = alunosLocais[index];
+    if (!aluno || !aluno.nome) return;
+    setAlunoParaExcluir({ index, aluno });
+    setMostrarModalExcluir(true);
+  };
+
+  const executarExclusaoAluno = async () => {
+    if (!alunoParaExcluir) return;
+    const { index, aluno } = alunoParaExcluir;
+    
+    try {
+      if (aluno.id) {
+        await supabase.from('frequencia').delete().eq('aluno_id', aluno.id);
+        await supabase.from('alunos').delete().eq('id', aluno.id);
+      }
+      const novosAlunos = [...alunosLocais];
+      novosAlunos.splice(index, 1);
+      novosAlunos.forEach((a, i) => { a.posicao = i; });
+      setAlunosLocais(novosAlunos);
+      fetchTurmas();
+      fetchDadosGlobais();
+      setMostrarModalExcluir(false);
+      setAlunoParaExcluir(null);
+    } catch (error) {
+      console.error('Erro ao excluir aluno:', error);
+      alert('❌ Erro ao excluir aluno. Tente novamente.');
+    }
+  };
+
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÕES DE GERENCIAMENTO DE TURMAS
+  // ════════════════════════════════════════════════════════════
+
+  const resetarFormTurma = () => {
+    setTurmaForm({
+      professor: '',
+      oficina: '',
+      horario: '',
+      unidade: 'jardim_europa',
+      dias: [],
+      limite_personalizado: 15,
+    });
+    setEditandoTurma(null);
+    setMensagemTurma(null);
+  };
+
+  const abrirFormEditar = (turma: any) => {
+    setEditandoTurma(turma);
+    setTurmaForm({
+      professor: turma.professor || '',
+      oficina: turma.oficina || '',
+      horario: turma.horario || '',
+      unidade: turma.unidade || 'jardim_europa',
+      dias: turma.dias || [],
+      limite_personalizado: turma.limite_personalizado || obterLimiteOficina(turma.oficina),
+    });
+    setMostrarFormTurma(true);
+    setMensagemTurma(null);
+  };
+
+  const toggleDiaTurma = (diaId: number) => {
+    setTurmaForm(prev => {
+      const dias = prev.dias.includes(diaId) 
+        ? prev.dias.filter(d => d !== diaId) 
+        : [...prev.dias, diaId];
+      return { ...prev, dias };
+    });
+  };
+
+  const salvarTurma = async () => {
+    if (!turmaForm.professor.trim()) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Informe o nome do professor!' });
+      return;
+    }
+    if (!turmaForm.oficina.trim()) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Informe o nome da oficina/curso!' });
+      return;
+    }
+    if (!turmaForm.horario.trim()) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Informe o horário!' });
+      return;
+    }
+    if (turmaForm.dias.length === 0) {
+      setMensagemTurma({ tipo: 'erro', texto: 'Selecione pelo menos um dia da semana!' });
+      return;
+    }
+
+    setMensagemTurma(null);
+
+    const payload = {
+      professor: turmaForm.professor.toUpperCase().trim(),
+      oficina: turmaForm.oficina.toUpperCase().trim(),
+      horario: turmaForm.horario.trim(),
+      unidade: turmaForm.unidade,
+      dias: turmaForm.dias.sort((a, b) => a - b),
+      limite_personalizado: turmaForm.limite_personalizado || null,
+    };
+
+    try {
+      if (editandoTurma) {
+        const { error } = await supabase.from('turmas').update(payload).eq('id', editandoTurma.id);
+        if (error) throw error;
+        setMensagemTurma({ tipo: 'ok', texto: 'Turma atualizada com sucesso!' });
+      } else {
+        const { error } = await supabase.from('turmas').insert(payload);
+        if (error) throw error;
+        setMensagemTurma({ tipo: 'ok', texto: 'Turma criada com sucesso!' });
+      }
+      await fetchTurmas();
+      resetarFormTurma();
+      setMostrarFormTurma(false);
+      setTimeout(() => setMensagemTurma(null), 3000);
+    } catch (error: any) {
+      console.error('Erro ao salvar turma:', error);
+      setMensagemTurma({ tipo: 'erro', texto: error.message || 'Erro ao salvar turma!' });
+    }
+  };
+
+  const excluirTurma = async (turmaId: string) => {
+    const { data: alunos } = await supabase.from('alunos').select('id').eq('turma_id', turmaId);
+    
+    if (alunos && alunos.length > 0) {
+      if (!confirm(`Esta turma tem ${alunos.length} aluno(s). Deseja excluir mesmo assim?`)) return;
+      await supabase.from('alunos').delete().eq('turma_id', turmaId);
+      await supabase.from('frequencia').delete().eq('turma_id', turmaId);
+    } else {
+      if (!confirm('Tem certeza que deseja excluir esta turma?')) return;
+    }
+
+    try {
+      const { error } = await supabase.from('turmas').delete().eq('id', turmaId);
+      if (error) throw error;
+      await fetchTurmas();
+      setMensagemTurma({ tipo: 'ok', texto: 'Turma excluída com sucesso!' });
+      setTimeout(() => setMensagemTurma(null), 3000);
+    } catch (error: any) {
+      console.error('Erro ao excluir turma:', error);
+      setMensagemTurma({ tipo: 'erro', texto: error.message || 'Erro ao excluir turma!' });
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>;
 
   const mes2 = (mes + 1) % 12;
   const mes3 = (mes + 2) % 12;
 
   // ════════════════════════════════════════════════════════════
-  // TELA MENU — agora dividida em 3 seções (uma por unidade),
-  // numa única página com rolagem e atalhos de navegação no topo.
+  // TELA MENU
   // ════════════════════════════════════════════════════════════
   if (tela === 'menu') {
     return (
@@ -165,15 +408,23 @@ export default function ChamadaTrimestral() {
             <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
               CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
             </h1>
-            <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
-              <span className="text-[10px] font-black">BLOCO SELECIONADO:</span>
-              <select
-                value={mes}
-                onChange={e => setMes(Number(e.target.value))}
-                className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setTela('gerenciar_turmas')}
+                className="bg-black text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-white hover:text-black transition-all"
               >
-                {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
-              </select>
+                ⚙ GERENCIAR TURMAS
+              </button>
+              <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
+                <span className="text-[10px] font-black">BLOCO:</span>
+                <select
+                  value={mes}
+                  onChange={e => setMes(Number(e.target.value))}
+                  className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
+                >
+                  {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -196,36 +447,17 @@ export default function ChamadaTrimestral() {
           const turmasDaUnidade = turmas.filter(t => (t.unidade || 'jardim_europa') === u.id);
           const turmaIdsUnidade = new Set(turmasDaUnidade.map(t => t.id));
           const alunosUnidade = todosAlunos.filter(a => turmaIdsUnidade.has(a.turma_id));
-          const presencasUnidade = todasPresencas.filter(f => turmaIdsUnidade.has(f.turma_id));
-          const ativosSetUnidade = new Set(presencasUnidade.filter(f => f.status === 'P').map(f => f.aluno_id));
-          const mulheresUnidade = alunosUnidade.filter(a => detectarGenero(a.nome) === 'F').length;
-          const homensUnidade = alunosUnidade.filter(a => detectarGenero(a.nome) === 'M').length;
 
-          const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor))].sort();
+          const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => 
+            t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor
+          ))].sort();
 
           return (
             <div key={u.id} id={u.id} className="px-8">
               <div className={`flex items-center gap-3 max-w-6xl mx-auto mb-6 border-l-8 ${u.accent} pl-6 text-left`}>
                 <h2 className="text-2xl font-black italic uppercase tracking-tighter">{u.nome}</h2>
-              </div>
-
-              <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black">MATRICULADOS</span>
-                  <span className={`text-3xl ${u.txt}`}>{alunosUnidade.length}</span>
-                </div>
-                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black text-green-600">ATIVOS (BLOCO)</span>
-                  <span className="text-3xl text-green-600">{ativosSetUnidade.size}</span>
-                </div>
-                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black">MULHERES</span>
-                  <span className="text-3xl text-pink-500">{mulheresUnidade}</span>
-                </div>
-                <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_#000]">
-                  <span className="text-[10px] block font-black">HOMENS</span>
-                  <span className="text-3xl text-blue-400">{homensUnidade}</span>
-                </div>
+                <span className="text-sm font-bold italic text-gray-400 normal-case">{alunosUnidade.length} alunos</span>
+                <span className="text-sm font-bold italic text-gray-400 normal-case">{turmasDaUnidade.length} turmas</span>
               </div>
 
               {listaProfessoresUnidade.length === 0 ? (
@@ -236,7 +468,13 @@ export default function ChamadaTrimestral() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                   {listaProfessoresUnidade.map(p => {
                     const isPiano = p === "MICHEL (PIANO)";
-                    const totalAlunos = turmasDaUnidade.filter(t => isPiano ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))).reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+                    const turmasDoProfessor = turmasDaUnidade.filter(t => 
+                      isPiano 
+                        ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) 
+                        : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))
+                    );
+                    const totalAlunos = turmasDoProfessor.reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0);
+
                     return (
                       <button
                         key={p}
@@ -244,7 +482,9 @@ export default function ChamadaTrimestral() {
                         className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black"
                       >
                         {p}
-                        <span className={`text-[10px] ${u.txt} mt-2 font-bold italic`}>{totalAlunos} ALUNOS</span>
+                        <span className={`text-[10px] mt-2 font-bold italic ${u.txt}`}>
+                          {totalAlunos} ALUNOS
+                        </span>
                       </button>
                     )
                   })}
@@ -262,7 +502,327 @@ export default function ChamadaTrimestral() {
   }
 
   // ════════════════════════════════════════════════════════════
-  // TELA LISTA — agora filtrada também pela unidade selecionada
+  // TELA GERENCIAR TURMAS (COM FILTRO POR PROFESSOR)
+  // ════════════════════════════════════════════════════════════
+  if (tela === 'gerenciar_turmas') {
+    // Lista única de todos os professores para o filtro
+    const todosProfessores = [...new Set(turmas.map(t => t.professor))].sort();
+    
+    // Aplicar filtro de professor
+    const turmasFiltradas = filtroProfessorGerenciar
+      ? turmas.filter(t => t.professor === filtroProfessorGerenciar)
+      : turmas;
+
+    // Agrupa turmas filtradas por unidade
+    const turmasPorUnidade = UNIDADES.map(u => ({
+      ...u,
+      turmas: turmasFiltradas.filter(t => (t.unidade || 'jardim_europa') === u.id)
+    }));
+
+    // Total de turmas encontradas
+    const totalFiltrado = turmasFiltradas.length;
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setTela('menu')} 
+                className="text-xs border-2 border-black px-4 py-2 font-black italic uppercase bg-white hover:bg-black hover:text-white transition-all"
+              >
+                ← VOLTAR
+              </button>
+              <h1 className="text-4xl font-black italic inline-block border-l-8 border-black pl-4">
+                GERENCIAR <span className="text-blue-600">TURMAS</span>
+              </h1>
+            </div>
+            <button
+              onClick={() => {
+                resetarFormTurma();
+                setMostrarFormTurma(true);
+              }}
+              className="bg-emerald-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-emerald-500 transition-all"
+            >
+              + NOVA TURMA
+            </button>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════ */}
+          {/* FILTRO POR PROFESSOR */}
+          {/* ════════════════════════════════════════════════════════════ */}
+          <div className="bg-white border-4 border-black p-4 mb-6 shadow-[4px_4px_0px_#000] flex flex-wrap items-center gap-4">
+            <span className="text-[10px] font-black uppercase">Filtrar por professor:</span>
+            <select
+              value={filtroProfessorGerenciar}
+              onChange={e => setFiltroProfessorGerenciar(e.target.value)}
+              className="border-2 border-black px-4 py-2 text-sm font-bold uppercase outline-none flex-1 min-w-[200px] bg-white"
+            >
+              <option value="">TODOS OS PROFESSORES</option>
+              {todosProfessores.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            
+            {filtroProfessorGerenciar && (
+              <button
+                onClick={() => setFiltroProfessorGerenciar('')}
+                className="bg-red-600 text-white px-4 py-2 text-xs font-black uppercase border-2 border-black hover:bg-red-500 transition-all"
+              >
+                ✕ LIMPAR
+              </button>
+            )}
+            
+            <span className="text-xs text-gray-500 font-bold ml-auto">
+              {totalFiltrado} turma{totalFiltrado !== 1 ? 's' : ''} encontrada{totalFiltrado !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {mensagemTurma && (
+            <div className={`mb-6 px-4 py-3 border-4 border-black font-bold text-sm ${
+              mensagemTurma.tipo === 'ok' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {mensagemTurma.texto}
+            </div>
+          )}
+
+          {mostrarFormTurma && (
+            <div className="bg-white border-4 border-black p-6 mb-8 shadow-[6px_6px_0px_#000]">
+              <h2 className="text-2xl font-black italic mb-4">
+                {editandoTurma ? 'EDITAR TURMA' : 'NOVA TURMA'}
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Professor *</label>
+                  <input
+                    type="text"
+                    value={turmaForm.professor}
+                    onChange={e => setTurmaForm({ ...turmaForm, professor: e.target.value.toUpperCase() })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold uppercase outline-none"
+                    placeholder="Nome do professor"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Oficina/Curso *</label>
+                  <input
+                    type="text"
+                    value={turmaForm.oficina}
+                    onChange={e => setTurmaForm({ ...turmaForm, oficina: e.target.value.toUpperCase() })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold uppercase outline-none"
+                    placeholder="Ex: VIOLÃO, PIANO, CANTO..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Horário *</label>
+                  <input
+                    type="text"
+                    value={turmaForm.horario}
+                    onChange={e => setTurmaForm({ ...turmaForm, horario: e.target.value })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold outline-none"
+                    placeholder="Ex: 14:00 - 15:30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase mb-1">Unidade *</label>
+                  <select
+                    value={turmaForm.unidade}
+                    onChange={e => setTurmaForm({ ...turmaForm, unidade: e.target.value })}
+                    className="w-full border-2 border-black px-3 py-2 text-sm font-bold outline-none"
+                  >
+                    {UNIDADES.map(u => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black uppercase mb-2">Dias da Semana *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {DIAS_SEMANA.map(dia => (
+                      <button
+                        key={dia.id}
+                        onClick={() => toggleDiaTurma(dia.id)}
+                        className={`px-4 py-2 border-2 border-black font-bold text-sm transition-all ${
+                          turmaForm.dias.includes(dia.id) 
+                            ? 'bg-black text-white' 
+                            : 'bg-white text-black hover:bg-gray-100'
+                        }`}
+                      >
+                        {dia.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    {turmaForm.dias.length > 0 ? `Dias selecionados: ${turmaForm.dias.map(d => DIAS_SEMANA.find(dia => dia.id === d)?.label).join(', ')}` : 'Nenhum dia selecionado'}
+                  </div>
+                </div>
+                
+                {/* CAMPO DE LIMITE PERSONALIZADO */}
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black uppercase mb-1">
+                    Limite de alunos
+                  </label>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTurmaForm(prev => ({
+                          ...prev,
+                          limite_personalizado: Math.max(1, (prev.limite_personalizado || 15) - 1)
+                        }));
+                      }}
+                      className="bg-gray-200 px-4 py-2 border-2 border-black font-black hover:bg-gray-300 text-lg"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      value={turmaForm.limite_personalizado || ''}
+                      onChange={e => {
+                        const val = parseInt(e.target.value);
+                        setTurmaForm(prev => ({
+                          ...prev,
+                          limite_personalizado: isNaN(val) ? 0 : Math.max(1, Math.min(99, val))
+                        }));
+                      }}
+                      className="w-24 border-2 border-black px-3 py-2 text-lg font-bold text-center outline-none"
+                      min="1"
+                      max="99"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTurmaForm(prev => ({
+                          ...prev,
+                          limite_personalizado: Math.min(99, (prev.limite_personalizado || 15) + 1)
+                        }));
+                      }}
+                      className="bg-gray-200 px-4 py-2 border-2 border-black font-black hover:bg-gray-300 text-lg"
+                    >
+                      +
+                    </button>
+                    <span className="text-xs text-gray-500 font-bold ml-2">
+                      Padrão: {obterLimiteOficina(turmaForm.oficina)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTurmaForm(prev => ({
+                          ...prev,
+                          limite_personalizado: obterLimiteOficina(prev.oficina)
+                        }));
+                      }}
+                      className="text-xs bg-gray-100 px-3 py-1 border border-black font-bold hover:bg-gray-200"
+                    >
+                      Restaurar padrão
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-1">
+                    Deixe em branco ou 0 para usar o limite padrão da oficina
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={salvarTurma}
+                  className="bg-blue-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-blue-500 transition-all"
+                >
+                  {editandoTurma ? 'ATUALIZAR TURMA' : 'CRIAR TURMA'}
+                </button>
+                <button
+                  onClick={() => {
+                    resetarFormTurma();
+                    setMostrarFormTurma(false);
+                  }}
+                  className="bg-gray-200 px-6 py-3 font-black uppercase italic text-sm border-4 border-black hover:bg-gray-300 transition-all"
+                >
+                  CANCELAR
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* LISTA DE TURMAS FILTRADAS */}
+          {turmasPorUnidade.map(unidade => {
+            // Se não tem turmas nesta unidade após o filtro, não mostra
+            if (unidade.turmas.length === 0) return null;
+            
+            return (
+              <div key={unidade.id} className="mb-12">
+                <div className={`flex items-center gap-3 border-l-8 ${unidade.accent} pl-4 mb-4`}>
+                  <h2 className="text-2xl font-black italic">{unidade.nome}</h2>
+                  <span className="text-sm text-gray-500 font-bold">{unidade.turmas.length} turmas</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {unidade.turmas.map(turma => {
+                    const alunos = contagemAlunos[turma.id] || 0;
+                    const limite = obterLimiteTurma(turma);
+                    const status = getStatusLotacao(alunos, limite);
+                    const isPersonalizado = turma.limite_personalizado && turma.limite_personalizado > 0;
+
+                    return (
+                      <div key={turma.id} className={`bg-white border-4 p-4 shadow-[4px_4px_0px_#000] ${status.bg}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-black text-lg">{turma.oficina}</h3>
+                            <p className="text-sm font-bold">{turma.professor}</p>
+                            <p className="text-xs text-gray-600 font-bold">{turma.horario}</p>
+                            <p className="text-xs font-bold italic mt-1">
+                              {formatarDiasTexto(turma.dias)}
+                            </p>
+                            <p className={`text-xs font-bold mt-1 ${status.cor}`}>
+                              {status.icone} Alunos: {alunos} / {limite}
+                              {isPersonalizado && (
+                                <span className="text-[10px] text-gray-400 ml-1">
+                                  (personalizado)
+                                </span>
+                              )}
+                              <span className="text-[10px] ml-1">
+                                ({Math.round((alunos/limite)*100)}%)
+                              </span>
+                              <span className={`text-[10px] ml-1 font-bold ${status.cor}`}>
+                                {status.label}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => abrirFormEditar(turma)}
+                              className="bg-yellow-400 text-black px-3 py-1 text-[10px] font-black uppercase border-2 border-black hover:bg-yellow-300 transition-all"
+                            >
+                              ✎ EDITAR
+                            </button>
+                            <button
+                              onClick={() => excluirTurma(turma.id)}
+                              className="bg-red-600 text-white px-3 py-1 text-[10px] font-black uppercase border-2 border-black hover:bg-red-500 transition-all"
+                            >
+                              ✕ EXCLUIR
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {totalFiltrado === 0 && (
+            <div className="text-center py-12">
+              <p className="text-2xl font-black italic text-gray-400">NENHUMA TURMA ENCONTRADA</p>
+              <p className="text-sm text-gray-400 mt-2">Tente ajustar o filtro ou criar uma nova turma</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TELA LISTA
   // ════════════════════════════════════════════════════════════
   if (tela === 'lista') {
     const turmasDoProf = turmas.filter(t => {
@@ -275,43 +835,83 @@ export default function ChamadaTrimestral() {
 
     const unidadeAtual = UNIDADES.find(u => u.id === unidadeSel) || UNIDADES[0];
 
+    const gruposPorDia: Record<string, any[]> = {};
+    turmasDoProf.forEach(t => {
+      const diasArr = Array.isArray(t.dias) ? [...t.dias].map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b) : [];
+      const chave = diasArr.join(',');
+      if (!gruposPorDia[chave]) gruposPorDia[chave] = [];
+      gruposPorDia[chave].push(t);
+    });
+
+    const gruposOrdenados = Object.entries(gruposPorDia).sort(([chaveA], [chaveB]) => {
+      const primeiroA = Number(chaveA.split(',')[0]);
+      const primeiroB = Number(chaveB.split(',')[0]);
+      return (isNaN(primeiroA) ? 99 : primeiroA) - (isNaN(primeiroB) ? 99 : primeiroB);
+    });
+
+    const coresGrupo = ['bg-blue-600', 'bg-red-600', 'bg-emerald-600', 'bg-purple-600', 'bg-orange-600', 'bg-pink-600'];
+
     return (
       <div className="min-h-screen p-8 max-w-6xl mx-auto italic font-black uppercase">
         <button onClick={() => setTela('menu')} className="text-xs mb-4 border-2 border-black px-2 py-1 font-bold italic bg-gray-50 uppercase">← VOLTAR</button>
         <p className={`text-xs mb-2 font-bold italic ${unidadeAtual.txt}`}>{unidadeAtual.nome}</p>
         <h2 className="text-6xl mb-12 border-b-8 border-black pb-4 tracking-tighter uppercase font-black">{filtroOficina === "PIANO" ? "MICHEL (PIANO)" : profSel}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          {[1, 2].map(d => (
-            <div key={d}>
-              <h3 className={`p-3 mb-6 text-center border-4 border-black ${d === 1 ? 'bg-blue-600' : 'bg-red-600'} text-white shadow-[4px_4px_0px_#000] font-black`}>{d === 1 ? 'SEGUNDA E QUARTA' : 'TERÇA E QUINTA'}</h3>
-              <div className="space-y-4">
-                {turmasDoProf.filter(t => String(t.dias).includes(String(d))).map(c => {
-                  const n = contagemAlunos[c.id] || 0;
-                  const limit = obterLimiteOficina(c.oficina);
-                  return (
-                    <div key={c.id} onClick={() => { setIdAtivo(c.id); setTela('chamada'); }} className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all border-black`}>
-                      <div><span className="text-2xl block leading-none font-black">{c.horario}</span><span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span></div>
-                      <div className="text-right font-black italic"><span className="text-lg">{n} / {limit}</span></div>
-                    </div>
-                  )
-                })}
+          {gruposOrdenados.map(([chave, turmasGrupo], i) => {
+            const diasArr = chave.split(',').map(Number).filter(n => !isNaN(n));
+            const label = formatarDiasTexto(diasArr);
+            const cor = coresGrupo[i % coresGrupo.length];
+            return (
+              <div key={chave || `sem-dia-${i}`}>
+                <h3 className={`p-3 mb-6 text-center border-4 border-black ${cor} text-white shadow-[4px_4px_0px_#000] font-black`}>{label}</h3>
+                <div className="space-y-4">
+                  {turmasGrupo.map(c => {
+                    const n = contagemAlunos[c.id] || 0;
+                    const limit = obterLimiteTurma(c);
+                    const status = getStatusLotacao(n, limit);
+                    const isPersonalizado = c.limite_personalizado && c.limite_personalizado > 0;
+
+                    return (
+                      <div 
+                        key={c.id} 
+                        onClick={() => { setIdAtivo(c.id); setTela('chamada'); }} 
+                        className={`bg-white border-4 p-4 cursor-pointer shadow-[6px_6px_0px_#000] flex justify-between items-center hover:translate-y-[-2px] transition-all ${status.bg}`}
+                      >
+                        <div>
+                          <span className="text-2xl block leading-none font-black">{c.horario}</span>
+                          <span className="text-[10px] text-gray-400 font-bold italic">{c.oficina}</span>
+                          {isPersonalizado && (
+                            <span className="text-[8px] text-gray-400 font-bold ml-1">(limite personalizado)</span>
+                          )}
+                        </div>
+                        <div className="text-right font-black italic">
+                          <span className={`text-lg ${status.cor}`}>{status.icone} {n} / {limit}</span>
+                          <span className="block text-[10px] text-gray-400">
+                            {Math.round((n/limit)*100)}% - {status.label}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     )
   }
 
   // ════════════════════════════════════════════════════════════
-  // TELA CHAMADA — nome da unidade exibido dinamicamente
+  // TELA CHAMADA
   // ════════════════════════════════════════════════════════════
   const curso = turmas.find(t => t.id === idAtivo);
   const unidadeInfo = UNIDADES.find(u => u.id === (curso?.unidade || 'jardim_europa')) || UNIDADES[0];
-  const diasTexto = String(curso?.dias).includes('2') ? "TERÇA E QUINTA" : "SEGUNDA E QUARTA";
+  const diasArrCurso: number[] = Array.isArray(curso?.dias) ? curso.dias.map(Number).filter((n: number) => !isNaN(n)) : [];
+  const diasTexto = formatarDiasTexto(diasArrCurso);
 
   const getDatasParaMes = (mesAlvo: number) => {
-    const diasAlvo = String(curso?.dias).includes('2') ? [2, 4] : [1, 3];
+    const diasAlvo = diasArrCurso;
     const datas: { formatada: string; diaPuro: string; mesPuro: number }[] = [];
     const ultimoDia = new Date(2026, mesAlvo + 1, 0).getDate();
     for (let d = 1; d <= ultimoDia; d++) {
@@ -373,12 +973,15 @@ export default function ChamadaTrimestral() {
         }
       `}</style>
 
-      {/* Controle Superior do App */}
       <nav className="no-print bg-slate-900 border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
         <button onClick={() => { setTela('lista'); fetchTurmas(); }} className="text-xs border-2 border-white px-4 py-1.5 bg-transparent text-white font-black italic uppercase hover:bg-white hover:text-black transition-all">← VOLTAR</button>
         <div className="flex gap-4 items-center">
           <button onClick={() => setAlunosLocais([...alunosLocais, { nome: "", telefone: "", posicao: alunosLocais.length, id: null }])} className="bg-emerald-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all">NOVO ALUNO +</button>
-          <div className="flex items-center bg-gray-800 text-gray-300 border-2 border-black px-3 py-1.5 text-[11px] font-black italic">{numLinhas} LINHAS</div>
+          <div className="flex items-center bg-gray-800 text-gray-300 border-2 border-black text-[11px] font-black italic overflow-hidden">
+            <button onClick={() => setNumLinhas(n => Math.max(1, n - 1))} className="px-3 py-1.5 hover:bg-red-700 transition-all select-none">−</button>
+            <span className="px-3 py-1.5 border-x-2 border-black">{numLinhas} LINHAS</span>
+            <button onClick={() => setNumLinhas(n => n + 1)} className="px-3 py-1.5 hover:bg-green-700 transition-all select-none">+</button>
+          </div>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-2 border-black p-1 text-xs font-black bg-white text-black italic uppercase cursor-pointer">
             {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
           </select>
@@ -386,32 +989,46 @@ export default function ChamadaTrimestral() {
         </div>
       </nav>
 
-      {/* Folha de Chamada */}
+      {mostrarModalExcluir && alunoParaExcluir && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_#000]">
+            <h3 className="text-xl font-black uppercase mb-4">⚠️ Confirmar Exclusão</h3>
+            <p className="text-sm mb-2">Tem certeza que deseja excluir o aluno:</p>
+            <p className="text-lg font-black text-red-600 mb-4">{alunoParaExcluir.aluno.nome}</p>
+            <div className="text-xs text-gray-500 mb-4">
+              • Todas as frequências serão removidas<br />
+              • Esta ação não pode ser desfeita
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setMostrarModalExcluir(false); setAlunoParaExcluir(null); }}
+                className="flex-1 bg-gray-200 px-4 py-2 text-sm font-black uppercase border-2 border-black hover:bg-gray-300 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executarExclusaoAluno}
+                className="flex-1 bg-red-600 text-white px-4 py-2 text-sm font-black uppercase border-2 border-black hover:bg-red-500 transition-all"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="folha-container w-full" style={{ padding: "2px 0", margin: "0 auto" }}>
         <div style={{ border: "2.5px solid #000", backgroundColor: "#fff" }} className="mx-1 md:mx-2">
 
-          {/* Cabeçalho Dividido Simetricamente no Meio com Linha Vertical Física */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", backgroundColor: "#fff", height: "76px", borderBottom: "2.5px solid #000" }}>
-
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: "2.5px solid #000", padding: "4px" }}>
-              <img
-                src={URL_LOGO_PREFEITURA}
-                alt="Prefeitura de Teixeira de Freitas"
-                style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }}
-              />
+              <img src={URL_LOGO_PREFEITURA} alt="Prefeitura" style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }} />
             </div>
-
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px" }}>
-              <img
-                src={URL_LOGO_CULTURA}
-                alt="Casa da Cultura"
-                style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }}
-              />
+              <img src={URL_LOGO_CULTURA} alt="Casa da Cultura" style={{ height: "66px", maxWidth: "95%", objectFit: "contain" }} />
             </div>
-
           </div>
 
-          {/* Dados Institucionais */}
           <table className="w-full border-collapse text-[11px] font-bold italic" style={{ borderSpacing: 0, tableLayout: 'fixed' }}>
             <tbody>
               <tr>
@@ -441,7 +1058,6 @@ export default function ChamadaTrimestral() {
             </tbody>
           </table>
 
-          {/* Tabela Blindada contra Esmagamento com min-width */}
           <div className="tabela-wrapper">
             <table className="border-collapse text-black bg-white" style={{ borderSpacing: 0, width: "100%", minWidth: "1050px", tableLayout: "fixed" }}>
               <thead>
@@ -452,22 +1068,11 @@ export default function ChamadaTrimestral() {
                   <th colSpan={datasMes2.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#b3c7db] text-black font-black">{mesesNomes[mes2].toUpperCase()}</th>
                   <th colSpan={datasMes3.length} className="text-center py-1 italic tracking-wider bg-[#a4bdcf] text-black font-black">{mesesNomes[mes3].toUpperCase()}</th>
                 </tr>
-
                 <tr className="text-[9px] font-black tracking-tight text-center border-b-2 border-black bg-white">
                   <th style={{ borderRight: "2.5px solid #000", width: "30px" }} className="py-1 italic text-center">Nº</th>
                   <th style={{ borderRight: "2.5px solid #000", width: "320px" }} className="text-left px-3 italic">NOME DO ALUNO</th>
-
                   {todasDatasTrimestral.map((dt, i) => (
-                    <th
-                      key={i}
-                      style={{
-                        borderRight: "1px solid #000",
-                        width: "24px",
-                        maxWidth: "24px",
-                        minWidth: "24px"
-                      }}
-                      className="font-black p-0 py-1 italic text-center border-r border-black"
-                    >
+                    <th key={i} style={{ borderRight: "1px solid #000", width: "24px", maxWidth: "24px", minWidth: "24px" }} className="font-black p-0 py-1 italic text-center border-r border-black">
                       {dt.diaPuro}
                     </th>
                   ))}
@@ -476,15 +1081,13 @@ export default function ChamadaTrimestral() {
               <tbody>
                 {[...Array(numLinhas)].map((_, index) => {
                   const al = alunosLocais[index];
-
                   return (
                     <tr key={index} className="border-b border-black hover:bg-slate-50 transition-colors">
                       <td style={{ borderRight: "2.5px solid #000", height: "32px", width: "30px" }} className="text-center font-black bg-white text-[11px]">
                         {index + 1}
                       </td>
-
                       <td style={{ borderRight: "2.5px solid #000", width: "320px", padding: "0 8px" }} className="font-black uppercase italic">
-                        <div className="w-full h-full flex items-center">
+                        <div className="w-full h-full flex items-center gap-1">
                           <input
                             type="text"
                             value={al?.nome || ""}
@@ -495,12 +1098,20 @@ export default function ChamadaTrimestral() {
                               setAlunosLocais(n);
                             }}
                             onBlur={() => salvarAlunoNoBanco(index)}
-                            className="w-full bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1"
+                            className="flex-1 bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1"
                             placeholder=""
                           />
+                          {al?.nome && (
+                            <button
+                              onClick={() => confirmarExcluirAluno(index)}
+                              className="text-red-600 hover:text-red-800 text-[14px] font-black px-1 hover:scale-110 transition-all"
+                              title="Excluir aluno"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       </td>
-
                       {todasDatasTrimestral.map((dt, idx) => {
                         const status = al?.id ? (presencas[al.id]?.[dt.formatada] || "") : "";
                         return (
@@ -530,27 +1141,19 @@ export default function ChamadaTrimestral() {
           </div>
         </div>
 
-        {/* Rodapé Totalmente Blindado contra Desalinhamento (Uso de Grid Fixo) */}
         <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 240px", alignItems: "end", marginTop: "20px", padding: "0 16px", color: "#000" }}>
-
           <div style={{ width: "220px", justifySelf: "start" }} className="text-center">
             <div className="border-t-2 border-black w-full my-1"></div>
-            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">
-              COORDENADOR(A) PEDAGÓGICO(A)
-            </span>
+            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">COORDENADOR(A) PEDAGÓGICO(A)</span>
           </div>
-
           <div className="text-center px-4">
             <p style={{ color: "#475569", fontSize: "9px", lineHeight: "1.2" }} className="font-black italic uppercase tracking-tight">
               A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {mesesNomes[mes].toLowerCase()}/{mesesNomes[mes2].toLowerCase()}/{mesesNomes[mes3].toLowerCase()}.
             </p>
           </div>
-
           <div style={{ width: "220px", justifySelf: "end" }} className="text-center">
             <div className="border-t-2 border-black w-full my-1"></div>
-            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">
-              PROFESSOR(A): {curso?.professor}
-            </span>
+            <span className="text-[9px] font-black italic uppercase tracking-tight block text-center">PROFESSOR(A): {curso?.professor}</span>
           </div>
         </div>
 
@@ -561,5 +1164,3 @@ export default function ChamadaTrimestral() {
     </div>
   );
 }
-
-
