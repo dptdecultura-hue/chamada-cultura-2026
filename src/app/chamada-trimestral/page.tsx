@@ -51,7 +51,7 @@ const LIMITES_OFICINAS = {
   'BANDOLIM': 8,
 };
 
-function obterLimiteOficina(oficina) {
+function obterLimiteOficina(oficina: string) {
   if (!oficina) return 15;
   const of = oficina.toUpperCase().trim();
   if (LIMITES_OFICINAS[of]) return LIMITES_OFICINAS[of];
