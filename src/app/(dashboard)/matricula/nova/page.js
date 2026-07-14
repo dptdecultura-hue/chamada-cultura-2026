@@ -1,12 +1,34 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { UNIDADES } from '@/lib/constants'
 
+// ════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL (COM SUSPENSE)
+// ════════════════════════════════════════════════════════════
 export default function NovaMatricula() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8FAFC] p-8 flex items-center justify-center">
+        <div className="bg-white border-4 border-black p-8 max-w-md w-full shadow-[8px_8px_0px_#000] text-center">
+          <h1 className="text-2xl font-black uppercase mb-4">⏳ Carregando...</h1>
+          <p className="text-gray-500">Aguarde um momento</p>
+        </div>
+      </div>
+    }>
+      <ConteudoMatricula />
+    </Suspense>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// CONTEÚDO DA MATRÍCULA (COM useSearchParams)
+// ════════════════════════════════════════════════════════════
+function ConteudoMatricula() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const alunoId = searchParams.get('alunoId')
@@ -77,7 +99,6 @@ export default function NovaMatricula() {
     setLoading(true)
     setMensagem(null)
 
-    // Validação
     if (!formData.turma_id) {
       setMensagem({ tipo: 'erro', texto: 'Selecione uma turma!' })
       setLoading(false)
@@ -85,7 +106,7 @@ export default function NovaMatricula() {
     }
 
     try {
-      // 1. Buscar dados da turma
+      // Buscar dados da turma
       const { data: turmaData, error: turmaError } = await supabase
         .from('turmas')
         .select('oficina, horario, professor, unidade')
@@ -94,7 +115,7 @@ export default function NovaMatricula() {
 
       if (turmaError) throw turmaError
 
-      // 2. Verificar se o aluno já está matriculado nesta turma
+      // Verificar se o aluno já está matriculado
       const { data: existente, error: checkError } = await supabase
         .from('matriculas')
         .select('*')
@@ -110,7 +131,7 @@ export default function NovaMatricula() {
         return
       }
 
-      // 3. Inserir matrícula
+      // Inserir matrícula
       const { error: matriculaError } = await supabase
         .from('matriculas')
         .insert([{
@@ -123,8 +144,8 @@ export default function NovaMatricula() {
 
       if (matriculaError) throw matriculaError
 
-      // 4. ATUALIZAR O ALUNO com os dados da turma (vincula à turma)
-      const { error: alunoError } = await supabase
+      // Atualizar o aluno com os dados da turma
+      await supabase
         .from('alunos')
         .update({
           turma_id: formData.turma_id,
@@ -134,9 +155,7 @@ export default function NovaMatricula() {
         })
         .eq('id', formData.aluno_id)
 
-      if (alunoError) throw alunoError
-
-      // 5. Verificar a posição do aluno na turma (para ordenação)
+      // Atualizar posição do aluno na turma
       const { data: alunosNaTurma } = await supabase
         .from('alunos')
         .select('posicao')
@@ -144,8 +163,6 @@ export default function NovaMatricula() {
         .order('posicao', { ascending: true })
 
       const ultimaPosicao = alunosNaTurma?.length || 0
-
-      // 6. Atualizar a posição do aluno
       await supabase
         .from('alunos')
         .update({ posicao: ultimaPosicao + 1 })
@@ -156,7 +173,6 @@ export default function NovaMatricula() {
         texto: `✅ Aluno matriculado em "${turmaData.oficina}" com ${turmaData.professor}!` 
       })
 
-      // 7. Redirecionar após 2 segundos
       setTimeout(() => {
         router.push(`/alunos`)
       }, 2000)
