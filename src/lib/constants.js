@@ -64,38 +64,85 @@ export const BLOCOS_TRIMESTRAIS = [
 // LIMITES PADRÃO POR OFICINA
 // ════════════════════════════════════════════════════════════
 export const LIMITES_OFICINAS = {
-  // Cordas
   'VIOLÃO': 15,
   'VIOLINO': 10,
   'VIOLA': 3,
   'VIOLONCELO': 3,
   'CONTRABAIXO': 5,
-  
-  // Teclas
   'PIANO': 3,
   'TECLADO': 4,
-  
-  // Sopros
   'FLAUTA DOCE': 10,
   'FLAUTA TRANSVERSAL': 1,
   'SAXOFONE': 3,
   'CLARINETE': 3,
-  
-  // Percussão
   'BATERIA': 8,
   'PERCUSSÃO': 10,
-  
-  // Voz
   'CANTO': 15,
   'CORAL': 20,
   'TÉCNICA VOCAL': 12,
-  
-  // Teoria
   'TEORIA MUSICAL': 15,
   'MUSICALIZAÇÃO': 12,
-  
-  // Outros
   'UKULELE': 10,
   'CAVAQUINHO': 10,
   'BANDOLIM': 8,
 }
+
+// ════════════════════════════════════════════════════════════
+// CURSOS DISPONÍVEIS
+// ════════════════════════════════════════════════════════════
+export const CURSOS = [
+  'VIOLÃO',
+  'VIOLINO',
+  'VIOLA',
+  'VIOLONCELO',
+  'PERCUSSÃO/BATERIA',
+  'TEORIA MUSICAL',
+  'TÉCNICA VOCAL/CORO',
+  'PIANO',
+  'MUSICALIZAÇÃO',
+  'FLAUTA DOCE',
+  'FLAUTA TRANSVERSAL',
+  'SAXOFONE',
+  'CLARINETE',
+  'CANTO',
+  'CORAL',
+  'UKULELE',
+  'CAVAQUINHO',
+  'BANDOLIM',
+  'CONTRABAIXO',
+  'TECLADO',
+]
+
+// ════════════════════════════════════════════════════════════
+// NÍVEIS DE ENSINO
+// ════════════════════════════════════════════════════════════
+export const NIVEIS = [
+  'INICIANTE',
+  'INTERMEDIÁRIO',
+  'AVANÇADO',
+  'LIVRE',
+]
+
+// ════════════════════════════════════════════════════════════
+// HORÁRIOS DISPONÍVEIS
+// ════════════════════════════════════════════════════════════
+export const HORARIOS = [
+  '08:00 - 09:00',
+  '08:00 - 09:30',
+  '09:00 - 10:00',
+  '09:00 - 10:30',
+  '10:00 - 11:00',
+  '10:00 - 11:30',
+  '11:00 - 12:00',
+  '13:00 - 14:00',
+  '13:30 - 14:30',
+  '14:00 - 15:00',
+  '14:00 - 15:30',
+  '15:00 - 16:00',
+  '15:30 - 17:00',
+  '16:00 - 17:00',
+  '17:00 - 18:00',
+  '18:00 - 19:00',
+  '19:00 - 20:00',
+  '19:30 - 21:00',
+]

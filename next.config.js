@@ -2,13 +2,9 @@
 const nextConfig = {
   typescript: {
     // ⚠️ Ignora erros de TypeScript durante o build
-    // Isso é necessário porque o arquivo usa JavaScript puro
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // ⚠️ Ignora erros de ESLint durante o build
-    ignoreDuringBuilds: true,
-  },
+  // ⚠️ O ESLint agora é configurado via eslint.config.mjs, não no next.config
 }
 
 module.exports = nextConfig

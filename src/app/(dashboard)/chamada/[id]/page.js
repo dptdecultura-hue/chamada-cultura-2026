@@ -1,13 +1,11 @@
-// src/app/(dashboard)/chamada/[id]/page.js
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { UNIDADES, MESES_NOMES, BLOCOS_TRIMESTRAIS, NOMES_DIAS_SEMANA } from '@/lib/constants'
-import { obterLimiteTurma, getStatusLotacao, formatarDiasTexto, detectarGenero } from '@/lib/helpers'
-import { formatarData, formatarUnidade } from '@/lib/formatadores'
+import { UNIDADES, MESES_NOMES, BLOCOS_TRIMESTRAIS } from '@/lib/constants'
+import { obterLimiteTurma, formatarDiasTexto, detectarGenero } from '@/lib/helpers'
 
 // Caminhos locais apontando para a sua pasta public
 const URL_LOGO_PREFEITURA = "/logo-prefeitura.png.jpeg";
@@ -15,7 +13,12 @@ const URL_LOGO_CULTURA = "/logo-casa-cultura.png";
 
 export default function Chamada() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const idAtivo = params.id
+
+  // Pegar parâmetros da URL para voltar corretamente
+  const professor = searchParams.get('professor') || ''
+  const unidade = searchParams.get('unidade') || 'jardim_europa'
 
   const [mes, setMes] = useState(6)
   const [turmas, setTurmas] = useState([])
@@ -24,14 +27,10 @@ export default function Chamada() {
   const [presencas, setPresencas] = useState({})
   const [loading, setLoading] = useState(true)
   const [numLinhas, setNumLinhas] = useState(10)
-  const [contagemAlunos, setContagemAlunos] = useState({})
-  const [todosAlunos, setTodosAlunos] = useState([])
 
   // Estados do modal de exclusão
   const [alunoParaExcluir, setAlunoParaExcluir] = useState(null)
   const [mostrarModalExcluir, setMostrarModalExcluir] = useState(false)
-
-  const mesesNomes = MESES_NOMES
 
   useEffect(() => {
     fetchTurmas()
@@ -44,10 +43,6 @@ export default function Chamada() {
 
   async function fetchTurmas() {
     const { data: tData } = await supabase.from('turmas').select('*')
-    const { data: aData } = await supabase.from('alunos').select('turma_id')
-    const contagem = {}
-    aData?.forEach(a => { contagem[a.turma_id] = (contagem[a.turma_id] || 0) + 1 })
-    setContagemAlunos(contagem)
     if (tData) {
       setTurmas(tData.sort((a, b) => a.horario.localeCompare(b.horario)))
       const cursoEncontrado = tData.find(t => t.id === idAtivo)
@@ -57,17 +52,23 @@ export default function Chamada() {
   }
 
   async function fetchDadosGlobais() {
-    const mes2 = (mes + 1) % 12
-    const mes3 = (mes + 2) % 12
-    const { data: alu } = await supabase.from('alunos').select('*')
-    if (alu) setTodosAlunos(alu)
+    // Não precisa mais buscar dados globais para esta tela
   }
 
   async function fetchDados() {
     const mes2 = (mes + 1) % 12
     const mes3 = (mes + 2) % 12
-    const { data: alData } = await supabase.from('alunos').select('*').eq('turma_id', idAtivo).order('posicao', { ascending: true })
-    const { data: preData } = await supabase.from('frequencia').select('*').eq('turma_id', idAtivo).in('mes', [mes, mes2, mes3])
+    const { data: alData } = await supabase
+      .from('alunos')
+      .select('*')
+      .eq('turma_id', idAtivo)
+      .order('posicao', { ascending: true })
+    
+    const { data: preData } = await supabase
+      .from('frequencia')
+      .select('*')
+      .eq('turma_id', idAtivo)
+      .in('mes', [mes, mes2, mes3])
 
     if (alData) setAlunosLocais(alData)
 
@@ -100,8 +101,6 @@ export default function Chamada() {
         const n = [...alunosLocais]
         n[index].id = novo[0].id
         setAlunosLocais(n)
-        fetchTurmas()
-        fetchDadosGlobais()
         return novo[0].id
       }
     }
@@ -118,9 +117,14 @@ export default function Chamada() {
     if (novoStatus === "") {
       await supabase.from('frequencia').delete().eq('aluno_id', aId).eq('data_aula', dataAula).eq('mes', mesDaAula)
     } else {
-      await supabase.from('frequencia').upsert({ aluno_id: aId, turma_id: idAtivo, data_aula: dataAula, mes: mesDaAula, status: novoStatus })
+      await supabase.from('frequencia').upsert({ 
+        aluno_id: aId, 
+        turma_id: idAtivo, 
+        data_aula: dataAula, 
+        mes: mesDaAula, 
+        status: novoStatus 
+      })
     }
-    fetchDadosGlobais()
   }
 
   // Excluir aluno
@@ -144,8 +148,6 @@ export default function Chamada() {
       novosAlunos.splice(index, 1)
       novosAlunos.forEach((a, i) => { a.posicao = i })
       setAlunosLocais(novosAlunos)
-      fetchTurmas()
-      fetchDadosGlobais()
       setMostrarModalExcluir(false)
       setAlunoParaExcluir(null)
     } catch (error) {
@@ -191,6 +193,9 @@ export default function Chamada() {
   const datasMes3 = getDatasParaMes(mes3)
   const todasDatasTrimestral = [...datasMes1, ...datasMes2, ...datasMes3]
 
+  // Construir URL de voltar com os parâmetros corretos
+  const voltarUrl = `/lista?professor=${encodeURIComponent(professor || curso?.professor || '')}&unidade=${encodeURIComponent(unidade || curso?.unidade || 'jardim_europa')}`
+
   return (
     <div className="min-h-screen font-sans uppercase bg-[#fff] text-black w-full antialiased">
       <title>CASA DA CULTURA 2026</title>
@@ -234,11 +239,17 @@ export default function Chamada() {
 
       {/* Controle Superior */}
       <nav className="no-print bg-slate-900 border-b-4 border-black p-4 sticky top-0 z-50 flex justify-between items-center px-8 shadow-md">
-        <Link href="/lista" className="text-xs border-2 border-white px-4 py-1.5 bg-transparent text-white font-black italic uppercase hover:bg-white hover:text-black transition-all no-underline">
+        <Link 
+          href={voltarUrl}
+          className="text-xs border-2 border-white px-4 py-1.5 bg-transparent text-white font-black italic uppercase hover:bg-white hover:text-black transition-all no-underline"
+        >
           ← VOLTAR
         </Link>
         <div className="flex gap-4 items-center flex-wrap">
-          <button onClick={() => setAlunosLocais([...alunosLocais, { nome: "", telefone: "", posicao: alunosLocais.length, id: null }])} className="bg-emerald-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all">
+          <button 
+            onClick={() => setAlunosLocais([...alunosLocais, { nome: "", telefone: "", posicao: alunosLocais.length, id: null }])} 
+            className="bg-emerald-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all"
+          >
             NOVO ALUNO +
           </button>
           <div className="flex items-center bg-gray-800 text-gray-300 border-2 border-black text-[11px] font-black italic overflow-hidden">
@@ -246,10 +257,17 @@ export default function Chamada() {
             <span className="px-3 py-1.5 border-x-2 border-black">{numLinhas} LINHAS</span>
             <button onClick={() => setNumLinhas(n => n + 1)} className="px-3 py-1.5 hover:bg-green-700 transition-all select-none">+</button>
           </div>
-          <select value={mes} onChange={e => setMes(Number(e.target.value))} className="border-2 border-black p-1 text-xs font-black bg-white text-black italic uppercase cursor-pointer">
+          <select 
+            value={mes} 
+            onChange={e => setMes(Number(e.target.value))} 
+            className="border-2 border-black p-1 text-xs font-black bg-white text-black italic uppercase cursor-pointer"
+          >
             {BLOCOS_TRIMESTRAIS.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
           </select>
-          <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-blue-500 transition-all shadow-[2px_2px_0px_#000]">
+          <button 
+            onClick={() => window.print()} 
+            className="bg-blue-600 text-white px-6 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-blue-500 transition-all shadow-[2px_2px_0px_#000]"
+          >
             IMPRIMIR PAUTA
           </button>
         </div>
@@ -322,7 +340,7 @@ export default function Chamada() {
                   {unidadeInfo.nome.toUpperCase()}
                 </td>
                 <td style={{ borderTop: "2px solid #000", padding: "5px 10px", backgroundColor: "#fff" }} className="text-center font-black tracking-widest text-black uppercase text-[11px]">
-                  {mesesNomes[mes]}, {mesesNomes[mes2]} E {mesesNomes[mes3]}
+                  {MESES_NOMES[mes]}, {MESES_NOMES[mes2]} E {MESES_NOMES[mes3]}
                 </td>
               </tr>
             </tbody>
@@ -335,9 +353,9 @@ export default function Chamada() {
                 <tr className="text-[10px] font-black border-t-2 border-b-2 border-black">
                   <th style={{ width: "30px" }} className="bg-white"></th>
                   <th style={{ width: "320px" }} className="bg-white"></th>
-                  <th colSpan={datasMes1.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#c6d6e6] text-black font-black">{mesesNomes[mes].toUpperCase()}</th>
-                  <th colSpan={datasMes2.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#b3c7db] text-black font-black">{mesesNomes[mes2].toUpperCase()}</th>
-                  <th colSpan={datasMes3.length} className="text-center py-1 italic tracking-wider bg-[#a4bdcf] text-black font-black">{mesesNomes[mes3].toUpperCase()}</th>
+                  <th colSpan={datasMes1.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#c6d6e6] text-black font-black">{MESES_NOMES[mes].toUpperCase()}</th>
+                  <th colSpan={datasMes2.length} style={{ borderRight: "2.5px solid #000" }} className="text-center py-1 italic tracking-wider bg-[#b3c7db] text-black font-black">{MESES_NOMES[mes2].toUpperCase()}</th>
+                  <th colSpan={datasMes3.length} className="text-center py-1 italic tracking-wider bg-[#a4bdcf] text-black font-black">{MESES_NOMES[mes3].toUpperCase()}</th>
                 </tr>
                 <tr className="text-[9px] font-black tracking-tight text-center border-b-2 border-black bg-white">
                   <th style={{ borderRight: "2.5px solid #000", width: "30px" }} className="py-1 italic text-center">Nº</th>
@@ -420,7 +438,7 @@ export default function Chamada() {
           </div>
           <div className="text-center px-4">
             <p style={{ color: "#475569", fontSize: "9px", lineHeight: "1.2" }} className="font-black italic uppercase tracking-tight">
-              A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {mesesNomes[mes].toLowerCase()}/{mesesNomes[mes2].toLowerCase()}/{mesesNomes[mes3].toLowerCase()}.
+              A Secretaria de Cultura e Turismo deseja ao professor do curso de {curso?.oficina || "BATERIA"} um ótimo {MESES_NOMES[mes].toLowerCase()}/{MESES_NOMES[mes2].toLowerCase()}/{MESES_NOMES[mes3].toLowerCase()}.
             </p>
           </div>
           <div style={{ width: "220px", justifySelf: "end" }} className="text-center">

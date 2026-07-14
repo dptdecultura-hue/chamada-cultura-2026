@@ -1,4 +1,3 @@
-// src/app/(dashboard)/menu/page.js
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -55,12 +54,18 @@ export default function Menu() {
           <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
             CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
           </h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center">
             <Link
               href="/turmas"
               className="bg-black text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-white hover:text-black transition-all"
             >
               ⚙ GERENCIAR TURMAS
+            </Link>
+            <Link
+              href="/alunos"
+              className="bg-purple-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-purple-500 transition-all"
+            >
+              👤 PERFIL DO ALUNO
             </Link>
             <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
               <span className="text-[10px] font-black">BLOCO:</span>
