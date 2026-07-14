@@ -1,6 +1,7 @@
 // src/app/(dashboard)/lista/page.js
 'use client'
 
+import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -8,7 +9,28 @@ import Link from 'next/link'
 import { UNIDADES } from '@/lib/constants'
 import { obterLimiteTurma, getStatusLotacao, formatarDiasTexto } from '@/lib/helpers'
 
+// ════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL (COM SUSPENSE)
+// ════════════════════════════════════════════════════════════
 export default function ListaTurmas() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8FAFC] p-8 flex items-center justify-center">
+        <div className="bg-white border-4 border-black p-8 max-w-md w-full shadow-[8px_8px_0px_#000] text-center">
+          <h1 className="text-2xl font-black uppercase mb-4">⏳ Carregando...</h1>
+          <p className="text-gray-500">Aguarde um momento</p>
+        </div>
+      </div>
+    }>
+      <ConteudoLista />
+    </Suspense>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// CONTEÚDO DA LISTA (COM useSearchParams)
+// ════════════════════════════════════════════════════════════
+function ConteudoLista() {
   const searchParams = useSearchParams()
   const professor = searchParams.get('professor')
   const unidadeId = searchParams.get('unidade')
