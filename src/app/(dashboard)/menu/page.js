@@ -153,3 +153,5 @@ export default function Menu() {
     </div>
   )
 }
+
+// menu/page.js - Versão com perfil do aluno
