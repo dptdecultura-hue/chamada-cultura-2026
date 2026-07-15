@@ -152,3 +152,4 @@ export default function Menu() {
     </div>
   )
 }
+// Versao com perfil do aluno - Wed Jul 15 13:58:00 UTC 2026
