@@ -52,8 +52,8 @@ export default function Menu() {
       <div className="p-8 pb-4">
         <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-2 gap-6">
           <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
-  CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
-</h1>
+            CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
+          </h1>
           <div className="flex items-center gap-4 flex-wrap justify-center">
             <Link
               href="/turmas"
@@ -152,6 +152,3 @@ export default function Menu() {
     </div>
   )
 }
-
-
-// menu/page.js - Versão final com perfil do aluno
