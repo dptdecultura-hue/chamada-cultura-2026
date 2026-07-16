@@ -67,6 +67,12 @@ export default function Menu() {
             >
               👤 PERFIL DO ALUNO
             </Link>
+            <Link
+              href="/dashboard"
+              className="bg-blue-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-blue-500 transition-all"
+            >
+              📊 DASHBOARD
+            </Link>
             <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
               <span className="text-[10px] font-black">BLOCO:</span>
               <select
@@ -152,4 +158,3 @@ export default function Menu() {
     </div>
   )
 }
-// Versao com perfil do aluno - Wed Jul 15 13:58:00 UTC 2026
