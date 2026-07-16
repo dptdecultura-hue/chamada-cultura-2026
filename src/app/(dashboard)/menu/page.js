@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { UNIDADES } from '@/lib/constants'
+import Loading from '@/components/ui/Loading'
 
 export default function Menu() {
   const [turmas, setTurmas] = useState([])
@@ -42,10 +43,9 @@ export default function Menu() {
   }
 
   if (loading) {
-    return <div className="h-screen flex items-center justify-center font-black text-2xl uppercase italic text-black bg-white">CARREGANDO...</div>
+    return <Loading mensagem="Carregando menu..." />
   }
 
-  // Ícones e cores dos botões
   const menuItems = [
     { href: '/turmas', icon: '⚙', label: 'TURMAS', cor: 'bg-black hover:bg-gray-800' },
     { href: '/alunos', icon: '👤', label: 'ALUNOS', cor: 'bg-purple-600 hover:bg-purple-700' },
@@ -57,7 +57,6 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-black uppercase">
-      
       {/* TOPO */}
       <div className="bg-white border-b-4 border-black p-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -99,7 +98,7 @@ export default function Menu() {
           <div className="flex-1 border-t-2 border-black"></div>
         </div>
 
-        {/* BOTÕES DAS UNIDADES (TABS PEQUENAS) */}
+        {/* BOTÕES DAS UNIDADES */}
         <div className="flex flex-wrap justify-center gap-2">
           {UNIDADES.map(u => (
             <a
@@ -124,18 +123,14 @@ export default function Menu() {
 
           return (
             <div key={u.id} id={u.id} className="mt-10">
-              {/* CABEÇALHO DA UNIDADE */}
               <div className={`flex items-center gap-3 border-l-8 ${u.accent} pl-4 mb-4`}>
                 <h2 className="text-xl font-black italic tracking-tighter">{u.nome}</h2>
                 <span className="text-xs font-bold text-gray-400">{alunosUnidade.length} alunos</span>
                 <span className="text-xs font-bold text-gray-400">{turmasDaUnidade.length} turmas</span>
               </div>
 
-              {/* PROFESSORES DA UNIDADE */}
               {listaProfessoresUnidade.length === 0 ? (
-                <p className="text-xs text-gray-400 font-bold italic">
-                  NENHUMA TURMA CADASTRADA NESTA UNIDADE AINDA.
-                </p>
+                <p className="text-xs text-gray-400 font-bold italic">NENHUMA TURMA CADASTRADA NESTA UNIDADE AINDA.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {listaProfessoresUnidade.map(p => {
