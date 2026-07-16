@@ -54,7 +54,28 @@ export default function Menu() {
           <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
             CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
           </h1>
-          <div className="flex items-center gap-4 flex-wrap justify-center">
+          <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
+            <span className="text-[10px] font-black">BLOCO:</span>
+            <select
+              value={mes}
+              onChange={e => setMes(Number(e.target.value))}
+              className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
+            >
+              {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* MENU ORGANIZADO POR CATEGORIAS */}
+      <div className="max-w-4xl mx-auto px-4 space-y-6">
+        
+        {/* CATEGORIA 1: GESTÃO */}
+        <div className="text-left">
+          <h2 className="text-sm font-black uppercase tracking-wider text-gray-400 mb-3 border-b-2 border-gray-200 pb-2">
+            📋 Gestão
+          </h2>
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/turmas"
               className="bg-black text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-white hover:text-black transition-all"
@@ -67,6 +88,15 @@ export default function Menu() {
             >
               👤 PERFIL DO ALUNO
             </Link>
+          </div>
+        </div>
+
+        {/* CATEGORIA 2: ANÁLISE */}
+        <div className="text-left">
+          <h2 className="text-sm font-black uppercase tracking-wider text-gray-400 mb-3 border-b-2 border-gray-200 pb-2">
+            📊 Análise
+          </h2>
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/dashboard"
               className="bg-blue-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-blue-500 transition-all"
@@ -79,28 +109,34 @@ export default function Menu() {
             >
               📊 RELATÓRIO FREQUÊNCIA
             </Link>
+          </div>
+        </div>
+
+        {/* CATEGORIA 3: FERRAMENTAS */}
+        <div className="text-left">
+          <h2 className="text-sm font-black uppercase tracking-wider text-gray-400 mb-3 border-b-2 border-gray-200 pb-2">
+            🤖 Ferramentas
+          </h2>
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/previsao-evasao"
               className="bg-red-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-red-500 transition-all"
             >
               🤖 PREVISÃO EVASÃO
             </Link>
-            <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
-              <span className="text-[10px] font-black">BLOCO:</span>
-              <select
-                value={mes}
-                onChange={e => setMes(Number(e.target.value))}
-                className="bg-black text-white px-4 py-1 text-xs font-black italic outline-none cursor-pointer"
-              >
-                {blocosTrimestrais.map((b, i) => <option key={i} value={b.inicio}>{b.nome}</option>)}
-              </select>
-            </div>
+            <Link
+              href="/notificacoes"
+              className="bg-green-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-green-500 transition-all"
+            >
+              📱 NOTIFICAÇÕES
+            </Link>
           </div>
         </div>
+
       </div>
 
       {/* ATALHOS DE NAVEGAÇÃO ENTRE UNIDADES */}
-      <div className="no-print sticky top-0 z-40 bg-black text-white flex flex-wrap items-center justify-center gap-3 px-8 py-3 mb-10 shadow-md">
+      <div className="mt-12 no-print sticky bottom-0 z-40 bg-black text-white flex flex-wrap items-center justify-center gap-3 px-8 py-3 shadow-md">
         <span className="text-[10px] font-black uppercase italic mr-2">IR PARA:</span>
         {UNIDADES.map(u => (
           <a
@@ -113,6 +149,7 @@ export default function Menu() {
         ))}
       </div>
 
+      {/* UNIDADES */}
       {UNIDADES.map((u, idx) => {
         const turmasDaUnidade = turmas.filter(t => (t.unidade || 'jardim_europa') === u.id)
         const turmaIdsUnidade = new Set(turmasDaUnidade.map(t => t.id))
@@ -123,7 +160,7 @@ export default function Menu() {
         ))].sort()
 
         return (
-          <div key={u.id} id={u.id} className="px-8">
+          <div key={u.id} id={u.id} className="px-8 mt-12">
             <div className={`flex items-center gap-3 max-w-6xl mx-auto mb-6 border-l-8 ${u.accent} pl-6 text-left`}>
               <h2 className="text-2xl font-black italic uppercase tracking-tighter">{u.nome}</h2>
               <span className="text-sm font-bold italic text-gray-400 normal-case">{alunosUnidade.length} alunos</span>
