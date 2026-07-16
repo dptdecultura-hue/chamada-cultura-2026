@@ -46,12 +46,11 @@ export default function Menu() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] italic font-black uppercase text-center pb-20">
-      <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
-
-      <div className="p-8 pb-4">
-        <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto mb-2 gap-6">
-          <h1 className="text-4xl font-black border-l-8 border-black pl-6 italic tracking-tighter">
+    <div className="min-h-screen bg-[#F8FAFC] font-black uppercase pb-20">
+      {/* TOPO */}
+      <div className="bg-white border-b-4 border-black p-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <h1 className="text-3xl font-black border-l-8 border-black pl-4 italic tracking-tighter">
             CASA DA CULTURA <span className="text-blue-600">TRIMESTRAL</span>
           </h1>
           <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
@@ -67,143 +66,115 @@ export default function Menu() {
         </div>
       </div>
 
-      {/* MENU ORGANIZADO POR CATEGORIAS */}
-      <div className="max-w-4xl mx-auto px-4 space-y-6">
-        
-        {/* CATEGORIA 1: GESTÃO */}
-        <div className="text-left">
-          <h2 className="text-sm font-black uppercase tracking-wider text-gray-400 mb-3 border-b-2 border-gray-200 pb-2">
-            📋 Gestão
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/turmas"
-              className="bg-black text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-white hover:text-black transition-all"
-            >
-              ⚙ GERENCIAR TURMAS
-            </Link>
-            <Link
-              href="/alunos"
-              className="bg-purple-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-purple-500 transition-all"
-            >
-              👤 PERFIL DO ALUNO
-            </Link>
-          </div>
+      {/* MENU EM CARDS */}
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Link href="/turmas" className="bg-white border-4 border-black p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all">
+            <div className="text-3xl mb-1">⚙</div>
+            <div className="text-sm font-black">GERENCIAR</div>
+            <div className="text-sm font-black">TURMAS</div>
+          </Link>
+          <Link href="/alunos" className="bg-white border-4 border-black p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all">
+            <div className="text-3xl mb-1">👤</div>
+            <div className="text-sm font-black">PERFIL DO</div>
+            <div className="text-sm font-black">ALUNO</div>
+          </Link>
+          <Link href="/dashboard" className="bg-white border-4 border-black p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all">
+            <div className="text-3xl mb-1">📊</div>
+            <div className="text-sm font-black">DASHBOARD</div>
+          </Link>
+          <Link href="/relatorios/frequencia" className="bg-white border-4 border-black p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all">
+            <div className="text-3xl mb-1">📊</div>
+            <div className="text-sm font-black">RELATÓRIO</div>
+            <div className="text-sm font-black">FREQUÊNCIA</div>
+          </Link>
+          <Link href="/previsao-evasao" className="bg-white border-4 border-black p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all">
+            <div className="text-3xl mb-1">🤖</div>
+            <div className="text-sm font-black">PREVISÃO</div>
+            <div className="text-sm font-black">EVASÃO</div>
+          </Link>
+          <Link href="/notificacoes" className="bg-white border-4 border-black p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all">
+            <div className="text-3xl mb-1">📱</div>
+            <div className="text-sm font-black">NOTIFICAÇÕES</div>
+          </Link>
         </div>
 
-        {/* CATEGORIA 2: ANÁLISE */}
-        <div className="text-left">
-          <h2 className="text-sm font-black uppercase tracking-wider text-gray-400 mb-3 border-b-2 border-gray-200 pb-2">
-            📊 Análise
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/dashboard"
-              className="bg-blue-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-blue-500 transition-all"
-            >
-              📊 DASHBOARD
-            </Link>
-            <Link
-              href="/relatorios/frequencia"
-              className="bg-amber-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-amber-500 transition-all"
-            >
-              📊 RELATÓRIO FREQUÊNCIA
-            </Link>
-          </div>
+        {/* LINHA DIVISÓRIA */}
+        <div className="flex items-center gap-4 my-8">
+          <div className="flex-1 border-t-2 border-black"></div>
+          <span className="text-[10px] text-gray-400 tracking-widest">UNIDADES</span>
+          <div className="flex-1 border-t-2 border-black"></div>
         </div>
 
-        {/* CATEGORIA 3: FERRAMENTAS */}
-        <div className="text-left">
-          <h2 className="text-sm font-black uppercase tracking-wider text-gray-400 mb-3 border-b-2 border-gray-200 pb-2">
-            🤖 Ferramentas
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/previsao-evasao"
-              className="bg-red-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-red-500 transition-all"
+        {/* BOTÕES DAS UNIDADES */}
+        <div className="flex flex-wrap justify-center gap-3">
+          {UNIDADES.map(u => (
+            <a
+              key={u.id}
+              href={`#${u.id}`}
+              className={`border-4 border-black px-6 py-2 text-sm font-black ${u.accent} bg-white hover:bg-black hover:text-white transition-all`}
             >
-              🤖 PREVISÃO EVASÃO
-            </Link>
-            <Link
-              href="/notificacoes"
-              className="bg-green-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-green-500 transition-all"
-            >
-              📱 NOTIFICAÇÕES
-            </Link>
-          </div>
+              {u.label}
+            </a>
+          ))}
         </div>
 
-      </div>
+        {/* CONTEÚDO DAS UNIDADES */}
+        {UNIDADES.map((u, idx) => {
+          const turmasDaUnidade = turmas.filter(t => (t.unidade || 'jardim_europa') === u.id)
+          const turmaIdsUnidade = new Set(turmasDaUnidade.map(t => t.id))
+          const alunosUnidade = todosAlunos.filter(a => turmaIdsUnidade.has(a.turma_id))
 
-      {/* ATALHOS DE NAVEGAÇÃO ENTRE UNIDADES */}
-      <div className="mt-12 no-print sticky bottom-0 z-40 bg-black text-white flex flex-wrap items-center justify-center gap-3 px-8 py-3 shadow-md">
-        <span className="text-[10px] font-black uppercase italic mr-2">IR PARA:</span>
-        {UNIDADES.map(u => (
-          <a
-            key={u.id}
-            href={`#${u.id}`}
-            className="text-[11px] font-black italic uppercase border-2 border-white px-3 py-1 hover:bg-white hover:text-black transition-all no-underline"
-          >
-            {u.label}
-          </a>
-        ))}
-      </div>
+          const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => 
+            t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor
+          ))].sort()
 
-      {/* UNIDADES */}
-      {UNIDADES.map((u, idx) => {
-        const turmasDaUnidade = turmas.filter(t => (t.unidade || 'jardim_europa') === u.id)
-        const turmaIdsUnidade = new Set(turmasDaUnidade.map(t => t.id))
-        const alunosUnidade = todosAlunos.filter(a => turmaIdsUnidade.has(a.turma_id))
-
-        const listaProfessoresUnidade = [...new Set(turmasDaUnidade.map(t => 
-          t.oficina.toUpperCase().includes("PIANO") ? `MICHEL (PIANO)` : t.professor
-        ))].sort()
-
-        return (
-          <div key={u.id} id={u.id} className="px-8 mt-12">
-            <div className={`flex items-center gap-3 max-w-6xl mx-auto mb-6 border-l-8 ${u.accent} pl-6 text-left`}>
-              <h2 className="text-2xl font-black italic uppercase tracking-tighter">{u.nome}</h2>
-              <span className="text-sm font-bold italic text-gray-400 normal-case">{alunosUnidade.length} alunos</span>
-              <span className="text-sm font-bold italic text-gray-400 normal-case">{turmasDaUnidade.length} turmas</span>
-            </div>
-
-            {listaProfessoresUnidade.length === 0 ? (
-              <p className="max-w-6xl mx-auto text-left text-[11px] text-gray-400 font-bold italic mb-4">
-                NENHUMA TURMA CADASTRADA NESTA UNIDADE AINDA.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-                {listaProfessoresUnidade.map(p => {
-                  const isPiano = p === "MICHEL (PIANO)"
-                  const turmasDoProfessor = turmasDaUnidade.filter(t => 
-                    isPiano 
-                      ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) 
-                      : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))
-                  )
-                  const totalAlunos = turmasDoProfessor.reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0)
-
-                  return (
-                    <Link
-                      key={p}
-                      href={`/lista?professor=${encodeURIComponent(p)}&unidade=${u.id}`}
-                      className="border-4 border-black bg-white p-8 text-sm flex flex-col items-center shadow-[6px_6px_0px_#000] hover:translate-y-[-2px] transition-all font-black no-underline"
-                    >
-                      {p}
-                      <span className={`text-[10px] mt-2 font-bold italic ${u.txt}`}>
-                        {totalAlunos} ALUNOS
-                      </span>
-                    </Link>
-                  )
-                })}
+          return (
+            <div key={u.id} id={u.id} className="mt-12">
+              <div className={`flex items-center gap-3 max-w-5xl mx-auto mb-6 border-l-8 ${u.accent} pl-6 text-left`}>
+                <h2 className="text-2xl font-black italic uppercase tracking-tighter">{u.nome}</h2>
+                <span className="text-sm font-bold italic text-gray-400 normal-case">{alunosUnidade.length} alunos</span>
+                <span className="text-sm font-bold italic text-gray-400 normal-case">{turmasDaUnidade.length} turmas</span>
               </div>
-            )}
 
-            {idx < UNIDADES.length - 1 && (
-              <div className="max-w-6xl mx-auto border-t-4 border-dashed border-gray-300 my-12"></div>
-            )}
-          </div>
-        )
-      })}
+              {listaProfessoresUnidade.length === 0 ? (
+                <p className="max-w-5xl mx-auto text-left text-[11px] text-gray-400 font-bold italic mb-4">
+                  NENHUMA TURMA CADASTRADA NESTA UNIDADE AINDA.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                  {listaProfessoresUnidade.map(p => {
+                    const isPiano = p === "MICHEL (PIANO)"
+                    const turmasDoProfessor = turmasDaUnidade.filter(t => 
+                      isPiano 
+                        ? (t.professor === "MICHEL" && t.oficina.toUpperCase().includes("PIANO")) 
+                        : (t.professor === p && !t.oficina.toUpperCase().includes("PIANO"))
+                    )
+                    const totalAlunos = turmasDoProfessor.reduce((acc, t) => acc + (contagemAlunos[t.id] || 0), 0)
+
+                    return (
+                      <Link
+                        key={p}
+                        href={`/lista?professor=${encodeURIComponent(p)}&unidade=${u.id}`}
+                        className="border-4 border-black bg-white p-6 text-center shadow-[4px_4px_0px_#000] hover:translate-y-[-2px] transition-all font-black no-underline"
+                      >
+                        <div className="text-sm leading-tight">{p}</div>
+                        <div className={`text-[10px] mt-2 font-bold italic ${u.txt}`}>
+                          {totalAlunos} ALUNOS
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+
+              {idx < UNIDADES.length - 1 && (
+                <div className="max-w-5xl mx-auto border-t-4 border-dashed border-gray-300 my-12"></div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
