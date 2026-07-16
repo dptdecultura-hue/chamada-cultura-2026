@@ -73,6 +73,12 @@ export default function Menu() {
             >
               📊 DASHBOARD
             </Link>
+            <Link
+              href="/relatorios/frequencia"
+              className="bg-amber-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-amber-500 transition-all"
+            >
+              📊 RELATÓRIO FREQUÊNCIA
+            </Link>
             <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
               <span className="text-[10px] font-black">BLOCO:</span>
               <select
