@@ -79,6 +79,12 @@ export default function Menu() {
             >
               📊 RELATÓRIO FREQUÊNCIA
             </Link>
+            <Link
+              href="/previsao-evasao"
+              className="bg-red-600 text-white px-6 py-3 font-black uppercase italic text-sm border-4 border-black shadow-[4px_4px_0px_#000] hover:bg-red-500 transition-all"
+            >
+              🤖 PREVISÃO EVASÃO
+            </Link>
             <div className="flex items-center gap-2 bg-white border-4 border-black p-2 shadow-[4px_4px_0px_#000]">
               <span className="text-[10px] font-black">BLOCO:</span>
               <select
