@@ -1,3 +1,4 @@
+// src/app/(dashboard)/matricula/nova/page.js
 'use client'
 
 import { Suspense } from 'react'
@@ -7,27 +8,14 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { UNIDADES } from '@/lib/constants'
 
-// ════════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL (COM SUSPENSE)
-// ════════════════════════════════════════════════════════════
 export default function NovaMatricula() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#F8FAFC] p-8 flex items-center justify-center">
-        <div className="bg-white border-4 border-black p-8 max-w-md w-full shadow-[8px_8px_0px_#000] text-center">
-          <h1 className="text-2xl font-black uppercase mb-4">⏳ Carregando...</h1>
-          <p className="text-gray-500">Aguarde um momento</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<div className="p-8 text-center font-black">Carregando...</div>}>
       <ConteudoMatricula />
     </Suspense>
   )
 }
 
-// ════════════════════════════════════════════════════════════
-// CONTEÚDO DA MATRÍCULA (COM useSearchParams)
-// ════════════════════════════════════════════════════════════
 function ConteudoMatricula() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -37,6 +25,8 @@ function ConteudoMatricula() {
   const [mensagem, setMensagem] = useState(null)
   const [aluno, setAluno] = useState(null)
   const [turmas, setTurmas] = useState([])
+  const [diasDaTurma, setDiasDaTurma] = useState([])
+
   const [formData, setFormData] = useState({
     aluno_id: alunoId || '',
     turma_id: '',
@@ -51,6 +41,18 @@ function ConteudoMatricula() {
     }
     fetchTurmas()
   }, [alunoId])
+
+  // ════════════════════════════════════════════════════════════
+  // QUANDO A TURMA MUDA, BUSCAR OS DIAS
+  // ════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (formData.turma_id) {
+      const turmaSelecionada = turmas.find(t => t.id === formData.turma_id)
+      setDiasDaTurma(turmaSelecionada?.dias || [])
+    } else {
+      setDiasDaTurma([])
+    }
+  }, [formData.turma_id, turmas])
 
   async function fetchAluno() {
     const { data, error } = await supabase
@@ -94,6 +96,15 @@ function ConteudoMatricula() {
     }
   }
 
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÃO PARA FORMATAR OS DIAS
+  // ════════════════════════════════════════════════════════════
+  const formatarDias = (diasArray) => {
+    if (!diasArray || diasArray.length === 0) return 'Selecione uma turma'
+    const NOMES_DIAS = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
+    return diasArray.map(d => NOMES_DIAS[d]).join(' E ')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -106,7 +117,6 @@ function ConteudoMatricula() {
     }
 
     try {
-      // Buscar dados da turma
       const { data: turmaData, error: turmaError } = await supabase
         .from('turmas')
         .select('oficina, horario, professor, unidade')
@@ -115,7 +125,6 @@ function ConteudoMatricula() {
 
       if (turmaError) throw turmaError
 
-      // Verificar se o aluno já está matriculado
       const { data: existente, error: checkError } = await supabase
         .from('matriculas')
         .select('*')
@@ -131,8 +140,7 @@ function ConteudoMatricula() {
         return
       }
 
-      // Inserir matrícula
-      const { error: matriculaError } = await supabase
+      await supabase
         .from('matriculas')
         .insert([{
           aluno_id: formData.aluno_id,
@@ -142,9 +150,6 @@ function ConteudoMatricula() {
           status: formData.status,
         }])
 
-      if (matriculaError) throw matriculaError
-
-      // Atualizar o aluno com os dados da turma
       await supabase
         .from('alunos')
         .update({
@@ -155,7 +160,6 @@ function ConteudoMatricula() {
         })
         .eq('id', formData.aluno_id)
 
-      // Atualizar posição do aluno na turma
       const { data: alunosNaTurma } = await supabase
         .from('alunos')
         .select('posicao')
@@ -163,6 +167,7 @@ function ConteudoMatricula() {
         .order('posicao', { ascending: true })
 
       const ultimaPosicao = alunosNaTurma?.length || 0
+
       await supabase
         .from('alunos')
         .update({ posicao: ultimaPosicao + 1 })
@@ -191,10 +196,7 @@ function ConteudoMatricula() {
         <div className="bg-white border-4 border-black p-8 max-w-md w-full shadow-[8px_8px_0px_#000] text-center">
           <h1 className="text-2xl font-black uppercase mb-4">⚠️ Nenhum aluno selecionado</h1>
           <p className="text-gray-500 mb-6">Volte para o perfil do aluno e clique em "NOVA MATRÍCULA"</p>
-          <Link
-            href="/alunos"
-            className="bg-black text-white px-6 py-2 font-black uppercase text-sm border-2 border-black hover:bg-white hover:text-black transition-all inline-block"
-          >
+          <Link href="/alunos" className="bg-black text-white px-6 py-2 font-black uppercase text-sm border-2 border-black hover:bg-white hover:text-black transition-all inline-block">
             ← VOLTAR
           </Link>
         </div>
@@ -205,12 +207,8 @@ function ConteudoMatricula() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Cabeçalho */}
         <div className="flex items-center gap-4 mb-8">
-          <Link
-            href={`/alunos`}
-            className="text-xs border-2 border-black px-4 py-2 font-black italic uppercase bg-white hover:bg-black hover:text-white transition-all"
-          >
+          <Link href={`/alunos`} className="text-xs border-2 border-black px-4 py-2 font-black italic uppercase bg-white hover:bg-black hover:text-white transition-all">
             ← VOLTAR
           </Link>
           <h1 className="text-3xl font-black border-l-8 border-black pl-4">
@@ -218,7 +216,6 @@ function ConteudoMatricula() {
           </h1>
         </div>
 
-        {/* Aluno */}
         {aluno && (
           <div className="bg-white border-4 border-black p-4 mb-6 shadow-[4px_4px_0px_#000]">
             <p className="font-black text-lg">{aluno.nome}</p>
@@ -226,7 +223,6 @@ function ConteudoMatricula() {
           </div>
         )}
 
-        {/* Mensagem */}
         {mensagem && (
           <div className={`mb-6 px-4 py-3 border-4 border-black font-bold text-sm ${
             mensagem.tipo === 'ok' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -235,7 +231,6 @@ function ConteudoMatricula() {
           </div>
         )}
 
-        {/* Formulário */}
         <form onSubmit={handleSubmit} className="bg-white border-4 border-black p-6 shadow-[4px_4px_0px_#000]">
           <div className="space-y-4">
             <div>
@@ -254,6 +249,16 @@ function ConteudoMatricula() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════ */}
+            {/* EXIBIR DIAS DA SEMANA DA TURMA SELECIONADA */}
+            {/* ════════════════════════════════════════════════════════════ */}
+            <div>
+              <label className="block text-[10px] font-black uppercase mb-1">📅 Dias da Semana</label>
+              <div className="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50">
+                {diasDaTurma.length > 0 ? formatarDias(diasDaTurma) : 'Selecione uma turma'}
+              </div>
             </div>
 
             <div>
@@ -305,10 +310,7 @@ function ConteudoMatricula() {
             >
               {loading ? 'Salvando...' : '📋 REALIZAR MATRÍCULA'}
             </button>
-            <Link
-              href={`/alunos`}
-              className="bg-gray-200 px-6 py-3 font-black uppercase italic text-sm border-4 border-black hover:bg-gray-300 transition-all text-center"
-            >
+            <Link href={`/alunos`} className="bg-gray-200 px-6 py-3 font-black uppercase italic text-sm border-4 border-black hover:bg-gray-300 transition-all text-center">
               CANCELAR
             </Link>
           </div>
