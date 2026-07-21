@@ -25,8 +25,10 @@ function ConteudoMatricula() {
   const [mensagem, setMensagem] = useState(null)
   const [aluno, setAluno] = useState(null)
   const [turmas, setTurmas] = useState([])
-  const [diasDaTurma, setDiasDaTurma] = useState([])
-
+  
+  // ════════════════════════════════════════════════════════════
+  // ESTADO DO FORMULÁRIO
+  // ════════════════════════════════════════════════════════════
   const [formData, setFormData] = useState({
     aluno_id: alunoId || '',
     turma_id: '',
@@ -35,24 +37,23 @@ function ConteudoMatricula() {
     status: 'cursando',
   })
 
+  // ════════════════════════════════════════════════════════════
+  // ESTADO PARA OS DIAS SELECIONADOS
+  // ════════════════════════════════════════════════════════════
+  const [diasSelecionados, setDiasSelecionados] = useState({
+    segunda_quarta: false,
+    terca_quinta: false,
+    outro: false,
+  })
+  const [outroDiaTexto, setOutroDiaTexto] = useState('')
+  const [horarioSelecionado, setHorarioSelecionado] = useState('')
+
   useEffect(() => {
     if (alunoId) {
       fetchAluno()
     }
     fetchTurmas()
   }, [alunoId])
-
-  // ════════════════════════════════════════════════════════════
-  // ✅ CORRIGIDO: Buscar dias APENAS da turma selecionada
-  // ════════════════════════════════════════════════════════════
-  useEffect(() => {
-    if (formData.turma_id) {
-      const turmaSelecionada = turmas.find(t => t.id === formData.turma_id)
-      setDiasDaTurma(turmaSelecionada?.dias || [])
-    } else {
-      setDiasDaTurma([])
-    }
-  }, [formData.turma_id, turmas])
 
   async function fetchAluno() {
     const { data, error } = await supabase
@@ -91,21 +92,44 @@ function ConteudoMatricula() {
         turma_id: value,
         unidade: turmaSelecionada?.unidade || ''
       }))
+      // Preencher horário automaticamente
+      if (turmaSelecionada) {
+        setHorarioSelecionado(turmaSelecionada.horario || '')
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }))
     }
   }
 
-  const formatarDias = (diasArray) => {
-    if (!diasArray || diasArray.length === 0) return 'Selecione uma turma'
-    const NOMES_DIAS = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
-    return diasArray.map(d => NOMES_DIAS[d]).join(' E ')
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÕES PARA OS DIAS
+  // ════════════════════════════════════════════════════════════
+  const toggleDia = (dia) => {
+    setDiasSelecionados(prev => ({
+      ...prev,
+      [dia]: !prev[dia]
+    }))
+  }
+
+  const getDiasSelecionadosTexto = () => {
+    const partes = []
+    if (diasSelecionados.segunda_quarta) partes.push('SEGUNDA E QUARTA')
+    if (diasSelecionados.terca_quinta) partes.push('TERÇA E QUINTA')
+    if (diasSelecionados.outro && outroDiaTexto) partes.push(outroDiaTexto.toUpperCase())
+    return partes.length > 0 ? partes.join(' / ') : 'Nenhum dia selecionado'
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setMensagem(null)
+
+    // Validar se pelo menos um dia foi selecionado
+    if (!diasSelecionados.segunda_quarta && !diasSelecionados.terca_quinta && !diasSelecionados.outro) {
+      setMensagem({ tipo: 'erro', texto: 'Selecione pelo menos um dia da semana!' })
+      setLoading(false)
+      return
+    }
 
     if (!formData.turma_id) {
       setMensagem({ tipo: 'erro', texto: 'Selecione uma turma!' })
@@ -122,6 +146,7 @@ function ConteudoMatricula() {
 
       if (turmaError) throw turmaError
 
+      // Verificar se já está matriculado
       const { data: existente, error: checkError } = await supabase
         .from('matriculas')
         .select('*')
@@ -137,6 +162,9 @@ function ConteudoMatricula() {
         return
       }
 
+      // Criar matrícula com os dias selecionados
+      const diasTexto = getDiasSelecionadosTexto()
+      
       await supabase
         .from('matriculas')
         .insert([{
@@ -145,6 +173,7 @@ function ConteudoMatricula() {
           unidade: formData.unidade,
           data_matricula: formData.data_matricula,
           status: formData.status,
+          dias_selecionados: diasTexto, // Salvar os dias escolhidos
         }])
 
       await supabase
@@ -157,22 +186,9 @@ function ConteudoMatricula() {
         })
         .eq('id', formData.aluno_id)
 
-      const { data: alunosNaTurma } = await supabase
-        .from('alunos')
-        .select('posicao')
-        .eq('turma_id', formData.turma_id)
-        .order('posicao', { ascending: true })
-
-      const ultimaPosicao = alunosNaTurma?.length || 0
-
-      await supabase
-        .from('alunos')
-        .update({ posicao: ultimaPosicao + 1 })
-        .eq('id', formData.aluno_id)
-
       setMensagem({ 
         tipo: 'ok', 
-        texto: `✅ Aluno matriculado em "${turmaData.oficina}" com ${turmaData.professor}!` 
+        texto: `✅ Aluno matriculado em "${turmaData.oficina}" (${diasTexto}) com ${turmaData.professor}!` 
       })
 
       setTimeout(() => {
@@ -230,6 +246,7 @@ function ConteudoMatricula() {
 
         <form onSubmit={handleSubmit} className="bg-white border-4 border-black p-6 shadow-[4px_4px_0px_#000]">
           <div className="space-y-4">
+            {/* Turma */}
             <div>
               <label className="block text-[10px] font-black uppercase mb-1">Turma *</label>
               <select
@@ -249,15 +266,72 @@ function ConteudoMatricula() {
             </div>
 
             {/* ════════════════════════════════════════════════════════════ */}
-            {/* EXIBIR DIAS DA SEMANA DA TURMA SELECIONADA */}
+            {/* SELEÇÃO DE DIAS (IGUAL À FICHA FÍSICA) */}
             {/* ════════════════════════════════════════════════════════════ */}
             <div>
-              <label className="block text-[10px] font-black uppercase mb-1">📅 Dias da Semana</label>
-              <div className="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50">
-                {diasDaTurma.length > 0 ? formatarDias(diasDaTurma) : 'Selecione uma turma'}
+              <label className="block text-[10px] font-black uppercase mb-2">📅 Dias da Semana</label>
+              
+              {/* Segunda e Quarta */}
+              <div className="flex items-center gap-3 mb-2 p-2 border-2 border-black hover:bg-gray-50 cursor-pointer" onClick={() => toggleDia('segunda_quarta')}>
+                <input
+                  type="checkbox"
+                  checked={diasSelecionados.segunda_quarta}
+                  onChange={() => toggleDia('segunda_quarta')}
+                  className="w-5 h-5 border-2 border-black cursor-pointer"
+                />
+                <label className="font-bold cursor-pointer">SEGUNDA E QUARTA</label>
+              </div>
+
+              {/* Terça e Quinta */}
+              <div className="flex items-center gap-3 mb-2 p-2 border-2 border-black hover:bg-gray-50 cursor-pointer" onClick={() => toggleDia('terca_quinta')}>
+                <input
+                  type="checkbox"
+                  checked={diasSelecionados.terca_quinta}
+                  onChange={() => toggleDia('terca_quinta')}
+                  className="w-5 h-5 border-2 border-black cursor-pointer"
+                />
+                <label className="font-bold cursor-pointer">TERÇA E QUINTA</label>
+              </div>
+
+              {/* Outro Dia (campo de texto) */}
+              <div className="flex items-center gap-3 p-2 border-2 border-black hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={diasSelecionados.outro}
+                  onChange={() => toggleDia('outro')}
+                  className="w-5 h-5 border-2 border-black cursor-pointer"
+                />
+                <label className="font-bold cursor-pointer">OUTRO DIA:</label>
+                <input
+                  type="text"
+                  value={outroDiaTexto}
+                  onChange={(e) => setOutroDiaTexto(e.target.value.toUpperCase())}
+                  placeholder="Digite o dia"
+                  className={`flex-1 border-2 border-black px-2 py-1 text-sm font-bold uppercase outline-none ${!diasSelecionados.outro ? 'bg-gray-100' : 'bg-white'}`}
+                  disabled={!diasSelecionados.outro}
+                />
+              </div>
+
+              {/* Resumo dos dias selecionados */}
+              <div className="mt-3 p-3 border-2 border-black bg-gray-50">
+                <span className="text-xs font-bold text-gray-500">📌 DIAS ESCOLHIDOS:</span>
+                <p className="font-black text-lg uppercase">{getDiasSelecionadosTexto()}</p>
               </div>
             </div>
 
+            {/* Horário */}
+            <div>
+              <label className="block text-[10px] font-black uppercase mb-1">Horário</label>
+              <input
+                type="text"
+                value={horarioSelecionado}
+                onChange={(e) => setHorarioSelecionado(e.target.value)}
+                className="w-full border-2 border-black px-3 py-2 text-sm font-bold outline-none"
+                placeholder="Ex: 14:00 - 15:30"
+              />
+            </div>
+
+            {/* Unidade */}
             <div>
               <label className="block text-[10px] font-black uppercase mb-1">Unidade</label>
               <input
@@ -268,6 +342,7 @@ function ConteudoMatricula() {
               />
             </div>
 
+            {/* Data da Matrícula */}
             <div>
               <label className="block text-[10px] font-black uppercase mb-1">Data da Matrícula</label>
               <input
@@ -279,6 +354,7 @@ function ConteudoMatricula() {
               />
             </div>
 
+            {/* Status */}
             <div>
               <label className="block text-[10px] font-black uppercase mb-1">Status</label>
               <select
