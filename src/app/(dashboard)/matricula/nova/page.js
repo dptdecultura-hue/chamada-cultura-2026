@@ -43,7 +43,7 @@ function ConteudoMatricula() {
   }, [alunoId])
 
   // ════════════════════════════════════════════════════════════
-  // QUANDO A TURMA MUDA, BUSCAR OS DIAS
+  // ✅ CORRIGIDO: Buscar dias APENAS da turma selecionada
   // ════════════════════════════════════════════════════════════
   useEffect(() => {
     if (formData.turma_id) {
@@ -96,9 +96,6 @@ function ConteudoMatricula() {
     }
   }
 
-  // ════════════════════════════════════════════════════════════
-  // FUNÇÃO PARA FORMATAR OS DIAS
-  // ════════════════════════════════════════════════════════════
   const formatarDias = (diasArray) => {
     if (!diasArray || diasArray.length === 0) return 'Selecione uma turma'
     const NOMES_DIAS = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO']
