@@ -29,6 +29,32 @@ export default function Chamada() {
   const [alunoParaExcluir, setAlunoParaExcluir] = useState(null)
   const [mostrarModalExcluir, setMostrarModalExcluir] = useState(false)
 
+  // ════════════════════════════════════════════════════════════
+  // ESTADOS PARA MATRÍCULA RÁPIDA
+  // ════════════════════════════════════════════════════════════
+  const [mostrarModalMatricula, setMostrarModalMatricula] = useState(false)
+  const [buscaAluno, setBuscaAluno] = useState('')
+  const [alunoEncontrado, setAlunoEncontrado] = useState(null)
+  const [buscando, setBuscando] = useState(false)
+  const [mensagemMatricula, setMensagemMatricula] = useState(null)
+
+  // ════════════════════════════════════════════════════════════
+  // ESTADOS PARA DESLIGAMENTO
+  // ════════════════════════════════════════════════════════════
+  const [mostrarModalDesligar, setMostrarModalDesligar] = useState(false)
+  const [alunoParaDesligar, setAlunoParaDesligar] = useState(null)
+  const [motivoDesligamento, setMotivoDesligamento] = useState('desistente')
+  const [observacaoDesligamento, setObservacaoDesligamento] = useState('')
+  const [desligando, setDesligando] = useState(false)
+
+  const MOTIVOS_DESLIGAMENTO = [
+    { value: 'desistente', label: '🔴 Desistente' },
+    { value: 'transferido', label: '🟡 Transferido' },
+    { value: 'concluido', label: '✅ Concluído' },
+    { value: 'mudanca_cidade', label: '📦 Mudança de cidade' },
+    { value: 'outro', label: '📝 Outro' },
+  ]
+
   useEffect(() => {
     fetchTurmas()
     fetchDadosGlobais()
@@ -116,6 +142,9 @@ export default function Chamada() {
     }
   }
 
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÃO PARA EXCLUIR ALUNO
+  // ════════════════════════════════════════════════════════════
   function confirmarExcluirAluno(index) {
     const aluno = alunosLocais[index]
     if (!aluno || !aluno.nome) return
@@ -140,6 +169,200 @@ export default function Chamada() {
     } catch (error) {
       console.error('Erro ao excluir aluno:', error)
       alert('❌ Erro ao excluir aluno. Tente novamente.')
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÕES DA MATRÍCULA RÁPIDA
+  // ════════════════════════════════════════════════════════════
+
+  async function buscarAlunoParaMatricular() {
+    if (!buscaAluno.trim()) {
+      setMensagemMatricula({ tipo: 'erro', texto: 'Digite o CPF ou nome do aluno' })
+      return
+    }
+
+    setBuscando(true)
+    setMensagemMatricula(null)
+    setAlunoEncontrado(null)
+
+    try {
+      const { data, error } = await supabase
+        .from('alunos')
+        .select('*')
+        .or(`cpf.ilike.%${buscaAluno}%,nome.ilike.%${buscaAluno}%`)
+        .limit(5)
+
+      if (error) throw error
+
+      if (!data || data.length === 0) {
+        setMensagemMatricula({ tipo: 'erro', texto: 'Aluno não encontrado! Cadastre-o primeiro.' })
+        return
+      }
+
+      if (data.length === 1) {
+        setAlunoEncontrado(data[0])
+        setMensagemMatricula({ tipo: 'ok', texto: `✅ Aluno encontrado: ${data[0].nome}` })
+      } else {
+        setAlunoEncontrado(data[0])
+        setMensagemMatricula({ tipo: 'ok', texto: `${data.length} alunos encontrados. Selecionando o primeiro: ${data[0].nome}` })
+      }
+
+    } catch (error) {
+      console.error('Erro ao buscar aluno:', error)
+      setMensagemMatricula({ tipo: 'erro', texto: 'Erro ao buscar aluno!' })
+    } finally {
+      setBuscando(false)
+    }
+  }
+
+  async function matricularAlunoNaTurma() {
+    if (!alunoEncontrado) {
+      setMensagemMatricula({ tipo: 'erro', texto: 'Busque um aluno primeiro!' })
+      return
+    }
+
+    setBuscando(true)
+
+    try {
+      const { data: existente } = await supabase
+        .from('matriculas')
+        .select('*')
+        .eq('aluno_id', alunoEncontrado.id)
+        .eq('turma_id', idAtivo)
+        .eq('status', 'cursando')
+
+      if (existente && existente.length > 0) {
+        setMensagemMatricula({ tipo: 'erro', texto: 'Aluno já está matriculado nesta turma!' })
+        setBuscando(false)
+        return
+      }
+
+      const { data: turmaData } = await supabase
+        .from('turmas')
+        .select('oficina, horario, professor, unidade')
+        .eq('id', idAtivo)
+        .single()
+
+      await supabase
+        .from('matriculas')
+        .insert([{
+          aluno_id: alunoEncontrado.id,
+          turma_id: idAtivo,
+          unidade: turmaData.unidade,
+          data_matricula: new Date().toISOString().split('T')[0],
+          status: 'cursando',
+        }])
+
+      await supabase
+        .from('alunos')
+        .update({
+          turma_id: idAtivo,
+          unidade: turmaData.unidade,
+          curso: turmaData.oficina,
+          horario: turmaData.horario,
+        })
+        .eq('id', alunoEncontrado.id)
+
+      const { data: alunosNaTurma } = await supabase
+        .from('alunos')
+        .select('posicao')
+        .eq('turma_id', idAtivo)
+        .order('posicao', { ascending: true })
+
+      const ultimaPosicao = alunosNaTurma?.length || 0
+      await supabase
+        .from('alunos')
+        .update({ posicao: ultimaPosicao + 1 })
+        .eq('id', alunoEncontrado.id)
+
+      setMensagemMatricula({ 
+        tipo: 'ok', 
+        texto: `✅ ${alunoEncontrado.nome} matriculado em ${turmaData.oficina}!` 
+      })
+
+      setTimeout(() => {
+        fetchDados()
+        setMostrarModalMatricula(false)
+        setBuscaAluno('')
+        setAlunoEncontrado(null)
+        setMensagemMatricula(null)
+      }, 1500)
+
+    } catch (error) {
+      console.error('Erro ao matricular:', error)
+      setMensagemMatricula({ tipo: 'erro', texto: '❌ Erro ao matricular!' })
+    } finally {
+      setBuscando(false)
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // FUNÇÕES PARA DESLIGAMENTO
+  // ════════════════════════════════════════════════════════════
+
+  function abrirModalDesligar(index) {
+    const aluno = alunosLocais[index]
+    if (!aluno || !aluno.nome) return
+    setAlunoParaDesligar({ index, aluno })
+    setMotivoDesligamento('desistente')
+    setObservacaoDesligamento('')
+    setMostrarModalDesligar(true)
+  }
+
+  async function confirmarDesligamento() {
+    if (!alunoParaDesligar) return
+    const { index, aluno } = alunoParaDesligar
+
+    setDesligando(true)
+
+    try {
+      // 1. Atualizar a matrícula com status e motivo
+      const { data: matricula } = await supabase
+        .from('matriculas')
+        .select('id')
+        .eq('aluno_id', aluno.id)
+        .eq('turma_id', idAtivo)
+        .eq('status', 'cursando')
+        .single()
+
+      if (matricula) {
+        await supabase
+          .from('matriculas')
+          .update({
+            status: motivoDesligamento,
+            data_conclusao: new Date().toISOString().split('T')[0],
+            motivo_saida: observacaoDesligamento || motivoDesligamento,
+          })
+          .eq('id', matricula.id)
+      }
+
+      // 2. Remover o aluno da turma (mas manter o registro)
+      await supabase
+        .from('alunos')
+        .update({ turma_id: null })
+        .eq('id', aluno.id)
+
+      // 3. Remover da lista local
+      const novosAlunos = [...alunosLocais]
+      novosAlunos.splice(index, 1)
+      novosAlunos.forEach((a, i) => { a.posicao = i })
+      setAlunosLocais(novosAlunos)
+
+      // 4. Fechar modal
+      setMostrarModalDesligar(false)
+      setAlunoParaDesligar(null)
+      alert(`✅ ${aluno.nome} foi desligado do curso com status "${motivoDesligamento}"`)
+
+      // 5. Atualizar dados
+      fetchTurmas()
+      fetchDadosGlobais()
+
+    } catch (error) {
+      console.error('Erro ao desligar aluno:', error)
+      alert('❌ Erro ao desligar aluno. Tente novamente.')
+    } finally {
+      setDesligando(false)
     }
   }
 
@@ -196,6 +419,15 @@ export default function Chamada() {
         <Link href={voltarUrl} className="text-xs border-2 border-white px-4 py-1.5 bg-transparent text-white font-black italic uppercase hover:bg-white hover:text-black transition-all no-underline">← VOLTAR</Link>
         <div className="flex gap-4 items-center flex-wrap">
           <button onClick={() => setAlunosLocais([...alunosLocais, { nome: "", telefone: "", posicao: alunosLocais.length, id: null }])} className="bg-emerald-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-emerald-500 transition-all">NOVO ALUNO +</button>
+          
+          {/* BOTÃO MATRICULAR */}
+          <button
+            onClick={() => setMostrarModalMatricula(true)}
+            className="bg-purple-600 text-white px-4 py-1.5 text-[11px] border-2 border-black font-black italic hover:bg-purple-500 transition-all"
+          >
+            📋 MATRICULAR
+          </button>
+
           <div className="flex items-center bg-gray-800 text-gray-300 border-2 border-black text-[11px] font-black italic overflow-hidden">
             <button onClick={() => setNumLinhas(n => Math.max(1, n - 1))} className="px-3 py-1.5 hover:bg-red-700 transition-all select-none">−</button>
             <span className="px-3 py-1.5 border-x-2 border-black">{numLinhas} LINHAS</span>
@@ -208,6 +440,79 @@ export default function Chamada() {
         </div>
       </nav>
 
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* MODAL DE MATRÍCULA RÁPIDA */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {mostrarModalMatricula && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_#000]">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-black uppercase">📋 Matricular Aluno</h2>
+              <button 
+                onClick={() => {
+                  setMostrarModalMatricula(false)
+                  setBuscaAluno('')
+                  setAlunoEncontrado(null)
+                  setMensagemMatricula(null)
+                }}
+                className="text-2xl font-black hover:scale-110 transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={buscaAluno}
+                onChange={e => setBuscaAluno(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && buscarAlunoParaMatricular()}
+                placeholder="CPF ou nome do aluno"
+                className="flex-1 border-2 border-black px-3 py-2 text-sm font-bold uppercase outline-none"
+              />
+              <button
+                onClick={buscarAlunoParaMatricular}
+                disabled={buscando}
+                className="bg-black text-white px-4 py-2 text-sm font-black border-2 border-black hover:bg-gray-800 transition-all disabled:opacity-50"
+              >
+                {buscando ? '...' : '🔍'}
+              </button>
+            </div>
+
+            {mensagemMatricula && (
+              <div className={`mb-4 px-3 py-2 border-2 border-black text-sm font-bold ${
+                mensagemMatricula.tipo === 'ok' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {mensagemMatricula.texto}
+              </div>
+            )}
+
+            {alunoEncontrado && (
+              <div className="mb-4 p-3 border-2 border-black bg-gray-50">
+                <p className="font-black text-sm">{alunoEncontrado.nome}</p>
+                <p className="text-xs text-gray-600">CPF: {alunoEncontrado.cpf}</p>
+                <p className="text-xs text-gray-600">📞 {alunoEncontrado.telefone || 'N/A'}</p>
+              </div>
+            )}
+
+            <button
+              onClick={matricularAlunoNaTurma}
+              disabled={buscando || !alunoEncontrado}
+              className="w-full bg-emerald-600 text-white px-4 py-3 text-sm font-black uppercase border-2 border-black hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {buscando ? 'Matriculando...' : '📋 MATRICULAR'}
+            </button>
+
+            <div className="mt-2 text-[10px] text-gray-400 text-center">
+              {alunoEncontrado ? 'Clique em MATRICULAR para vincular à turma' : 'Busque um aluno primeiro'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* MODAL DE EXCLUSÃO */}
+      {/* ════════════════════════════════════════════════════════════ */}
       {mostrarModalExcluir && alunoParaExcluir && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_#000]">
@@ -218,6 +523,69 @@ export default function Chamada() {
             <div className="flex gap-2">
               <button onClick={() => { setMostrarModalExcluir(false); setAlunoParaExcluir(null); }} className="flex-1 bg-gray-200 px-4 py-2 text-sm font-black uppercase border-2 border-black hover:bg-gray-300 transition-all">Cancelar</button>
               <button onClick={executarExclusaoAluno} className="flex-1 bg-red-600 text-white px-4 py-2 text-sm font-black uppercase border-2 border-black hover:bg-red-500 transition-all">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* MODAL DE DESLIGAMENTO */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {mostrarModalDesligar && alunoParaDesligar && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_#000]">
+            <h3 className="text-xl font-black uppercase mb-4">⚠️ Desligar Aluno</h3>
+            
+            <div className="mb-4 p-3 bg-gray-50 border-2 border-black">
+              <p className="font-black text-sm">{alunoParaDesligar.aluno.nome}</p>
+              <p className="text-xs text-gray-600">Curso: {curso?.oficina}</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-[10px] font-black uppercase mb-1">Motivo</label>
+              <select
+                value={motivoDesligamento}
+                onChange={e => setMotivoDesligamento(e.target.value)}
+                className="w-full border-2 border-black px-3 py-2 text-sm font-bold uppercase outline-none"
+              >
+                {MOTIVOS_DESLIGAMENTO.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-[10px] font-black uppercase mb-1">Observações (opcional)</label>
+              <input
+                type="text"
+                value={observacaoDesligamento}
+                onChange={e => setObservacaoDesligamento(e.target.value)}
+                className="w-full border-2 border-black px-3 py-2 text-sm font-bold outline-none"
+                placeholder="Ex: Horário incompatível..."
+              />
+            </div>
+
+            <div className="text-xs text-gray-500 mb-4">
+              ⚠️ O aluno será removido da pauta, mas o histórico permanecerá com o status selecionado.
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setMostrarModalDesligar(false)
+                  setAlunoParaDesligar(null)
+                }}
+                className="flex-1 bg-gray-200 px-4 py-2 text-sm font-black uppercase border-2 border-black hover:bg-gray-300 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarDesligamento}
+                disabled={desligando}
+                className="flex-1 bg-orange-600 text-white px-4 py-2 text-sm font-black uppercase border-2 border-black hover:bg-orange-500 transition-all disabled:opacity-50"
+              >
+                {desligando ? 'Processando...' : 'Confirmar Desligamento'}
+              </button>
             </div>
           </div>
         </div>
@@ -265,7 +633,24 @@ export default function Chamada() {
                       <td style={{ borderRight: "2.5px solid #000", width: "320px", padding: "0 8px" }} className="font-black uppercase italic">
                         <div className="w-full h-full flex items-center gap-1">
                           <input type="text" value={al?.nome || ""} onChange={e => { const n = [...alunosLocais]; if (!n[index]) n[index] = { nome: "", telefone: "", posicao: index, id: null }; n[index].nome = e.target.value.toUpperCase(); setAlunosLocais(n) }} onBlur={() => salvarAlunoNoBanco(index)} className="flex-1 bg-transparent outline-none font-black uppercase italic text-[11px] tracking-wide py-1" placeholder="" />
-                          {al?.nome && <button onClick={() => confirmarExcluirAluno(index)} className="text-red-600 hover:text-red-800 text-[14px] font-black px-1 hover:scale-110 transition-all" title="Excluir aluno">✕</button>}
+                          {al?.nome && (
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                onClick={() => abrirModalDesligar(index)}
+                                className="text-orange-500 hover:text-orange-700 text-[14px] font-black px-1 hover:scale-110 transition-all"
+                                title="Desligar aluno"
+                              >
+                                📋
+                              </button>
+                              <button
+                                onClick={() => confirmarExcluirAluno(index)}
+                                className="text-red-600 hover:text-red-800 text-[14px] font-black px-1 hover:scale-110 transition-all"
+                                title="Excluir aluno"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                       {todasDatasTrimestral.map((dt, idx) => {
